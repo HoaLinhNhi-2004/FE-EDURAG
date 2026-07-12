@@ -47,7 +47,7 @@ export interface ForgotPasswordRequest {
 }
 
 export interface ResetPasswordRequest {
-  token: string // link/OTP từ email, hiệu lực 15 phút (UC 2)
+  otp: string // mã OTP từ email, hiệu lực 15 phút (UC 2)
   newPassword: string
 }
 
