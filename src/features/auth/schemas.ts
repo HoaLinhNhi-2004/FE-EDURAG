@@ -35,6 +35,7 @@ export const registerSchema = z
 export const loginSchema = z.object({
   email: z.string().min(1, 'Vui lòng nhập email').email('Email không đúng định dạng'),
   password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
+  remember: z.boolean().optional(),
 })
 
 // UC 2 — Quên mật khẩu: chỉ cần email; không tiết lộ email có tồn tại hay không.
