@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Claude Code — hướng dẫn cá nhân, không đẩy lên repo chung
+CLAUDE.local.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
