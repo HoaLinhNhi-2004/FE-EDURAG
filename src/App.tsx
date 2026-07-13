@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/store/auth'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
+import { RegisterPage } from '@/features/auth/pages/RegisterPage'
 
 /**
  * App root TẠM: điều phối theo trạng thái đăng nhập để màn Client chạy độc lập
@@ -8,13 +10,18 @@ import { LoginPage } from '@/features/auth/pages/LoginPage'
  */
 function App() {
   const { status, isAuthenticated, user, logout } = useAuth()
+  const [view, setView] = useState<'login' | 'register'>('login')
 
   if (status === 'loading') {
     return <div className="flex min-h-screen items-center justify-center text-slate-500">Đang tải…</div>
   }
 
   if (!isAuthenticated) {
-    return <LoginPage />
+    return view === 'login' ? (
+      <LoginPage onGoRegister={() => setView('register')} />
+    ) : (
+      <RegisterPage onGoLogin={() => setView('login')} />
+    )
   }
 
   return (

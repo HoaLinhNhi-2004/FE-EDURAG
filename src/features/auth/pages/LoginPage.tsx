@@ -19,7 +19,7 @@ import { AuthShell } from '../components/AuthShell'
 import { loginSchema, type LoginFormValues } from '../schemas'
 
 /** UC 3 — Màn Đăng nhập (luồng Client). */
-export function LoginPage() {
+export function LoginPage({ onGoRegister }: { onGoRegister?: () => void }) {
   const navigate = useNavigate()
   const { login } = useAuth()
   const [apiError, setApiError] = useState<string | null>(null)
@@ -107,8 +107,11 @@ export function LoginPage() {
 
       <p className="mt-6 text-center text-sm text-slate-600">
         Chưa có tài khoản?{' '}
-        {/* TODO(routing): trỏ tới màn Đăng ký (task 2.1). */}
-        <button type="button" className="font-medium text-indigo-600 hover:underline">
+        <button
+          type="button"
+          onClick={onGoRegister}
+          className="font-medium text-indigo-600 hover:underline"
+        >
           Đăng ký ngay
         </button>
       </p>

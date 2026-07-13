@@ -3,4 +3,12 @@ export { Input } from './Input'
 export { FormField } from './FormField'
 export { Spinner } from './Spinner'
 export { Alert } from './Alert'
-export { MailIcon, LockIcon, ArrowRightIcon, BrandMark } from './icons'
+export {
+  MailIcon,
+  LockIcon,
+  ArrowRightIcon,
+  BrandMark,
+  UserIcon,
+  IdCardIcon,
+  CalendarIcon,
+} from './icons'
