@@ -1,20 +1,22 @@
-/** Kiểu chung cho toàn bộ response API — chốt lại với BE ở task 3.1 */
+/** Kiểu chung cho toàn bộ response API. */
 export interface ApiResponse<T> {
   success: boolean
+  message: string
   data: T
-  message?: string
 }
 
+/** Phân trang: BE dùng offset/limit (documents, chat). Admin users dùng page/limit. */
 export interface Paginated<T> {
   items: T[]
-  page: number
-  pageSize: number
   total: number
+  offset: number
+  limit: number
 }
 
-/** Lỗi đã được chuẩn hóa bởi interceptor trong api/client.ts */
+/** Lỗi đã được chuẩn hóa bởi interceptor trong api/client.ts. */
 export interface ApiError {
   status: number | null
+  /** Lấy từ `errorCode` trong response lỗi của BE. */
   code: string
   message: string
 }

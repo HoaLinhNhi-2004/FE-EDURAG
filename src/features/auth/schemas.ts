@@ -35,6 +35,7 @@ export const registerSchema = z
 export const loginSchema = z.object({
   email: z.string().min(1, 'Vui lòng nhập email').email('Email không đúng định dạng'),
   password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
+  remember: z.boolean().optional(),
 })
 
 // UC 2 — Quên mật khẩu: chỉ cần email; không tiết lộ email có tồn tại hay không.
@@ -42,10 +43,10 @@ export const forgotPasswordSchema = z.object({
   email: z.string().min(1, 'Vui lòng nhập email').email('Email không đúng định dạng'),
 })
 
-// UC 2 — Đặt lại mật khẩu bằng OTP/link (hiệu lực 15 phút, kiểm tra ở BE).
+// UC 2 — Đặt lại mật khẩu bằng token từ email (hiệu lực 15 phút, kiểm tra ở BE).
 export const resetPasswordSchema = z
   .object({
-    otp: z.string().min(1, 'Vui lòng nhập mã OTP'),
+    token: z.string().min(1, 'Thiếu mã đặt lại mật khẩu'),
     newPassword: password,
     confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
   })

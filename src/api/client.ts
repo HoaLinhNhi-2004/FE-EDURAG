@@ -17,11 +17,17 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
-// 401 = token hết hạn giữa phiên → xóa token, đưa về /login (UC 3 exception flow)
+// 401 = token hết hạn giữa phiên → xóa token, đưa về /login (UC 3 exception flow).
+// Chỉ áp dụng khi ĐANG có token (phiên thật hết hạn); nếu không có token thì đây
+// là đăng nhập thất bại → để màn Đăng nhập tự hiển thị lỗi, KHÔNG redirect.
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<{ code?: string; message?: string }>) => {
-    if (error.response?.status === 401 && !window.location.pathname.startsWith('/login')) {
+  (error: AxiosError<{ errorCode?: string; message?: string }>) => {
+    const isSessionExpired =
+      error.response?.status === 401 &&
+      Boolean(getAccessToken()) &&
+      !window.location.pathname.startsWith('/login')
+    if (isSessionExpired) {
       clearAccessToken()
       window.location.assign('/login')
     }
@@ -30,11 +36,11 @@ apiClient.interceptors.response.use(
 )
 
 /** Chuẩn hóa mọi lỗi về ApiError để UI không phải đọc cấu trúc axios */
-function normalizeApiError(error: AxiosError<{ code?: string; message?: string }>): ApiError {
+function normalizeApiError(error: AxiosError<{ errorCode?: string; message?: string }>): ApiError {
   if (error.response) {
     return {
       status: error.response.status,
-      code: error.response.data?.code ?? 'SERVER_ERROR',
+      code: error.response.data?.errorCode ?? 'SERVER_ERROR',
       message: error.response.data?.message ?? 'Có lỗi xảy ra, vui lòng thử lại.',
     }
   }

@@ -8,7 +8,7 @@ import {
 } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Role, User } from '@/types'
-import { authApi } from '@/api/auth.api'
+import { profileApi } from '@/api/profile.api'
 import { getAccessToken, setAccessToken, clearAccessToken } from '@/utils/token'
 
 /**
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // trong api/client.ts xử lý: xóa token + điều hướng /login.
   const meQuery = useQuery({
     queryKey: ME_QUERY_KEY,
-    queryFn: authApi.me,
+    queryFn: profileApi.me,
     enabled: hasToken,
     retry: false,
     staleTime: 5 * 60 * 1000,
