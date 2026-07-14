@@ -1,55 +1,38 @@
 /**
- * Thẻ trích dẫn nguồn kèm câu trả lời RAG (UC 7, UC 10).
- * boundingBox dùng để highlight đoạn văn trong PDF viewer —
- * format cần BE xác nhận ở task 3.1 (Vector DB có lưu bounding box coordinates).
+ * Types cho Chat AI (UC 7). LƯU Ý: OpenAPI để `data` generic nên shape response
+ * chat (message + citations) là GIẢ ĐỊNH, cần đối chiếu BE khi integration.
  */
+
+/** Thẻ trích dẫn nguồn kèm câu trả lời (UC 7). boundingBox bổ sung khi làm PDF Viewer (UC 10). */
 export interface Citation {
-  documentId: string
+  id: number
+  documentId: number
   documentName: string
   page: number
   snippet: string
-  boundingBox?: {
-    x: number
-    y: number
-    width: number
-    height: number
-  }
 }
 
 export interface ChatMessage {
-  id: string
+  id: string | number
   role: 'user' | 'assistant'
   content: string
   citations?: Citation[]
   createdAt: string
 }
 
-/** Phiên chat trong sidebar Lịch sử trò chuyện (UC 9) */
 export interface ChatSession {
-  id: string
+  id: number
   title: string
+  createdAt: string
   updatedAt: string
 }
 
-export interface AskRequest {
-  sessionId?: string // bỏ trống = tạo phiên mới
-  question: string
+export interface CreateSessionRequest {
+  title?: string
 }
 
-export interface AskResponse {
-  sessionId: string
-  message: ChatMessage
-}
-
-/** UC 8 — tìm kiếm ngữ nghĩa */
-export interface SearchRequest {
-  query: string
-}
-
-export interface SearchResult {
-  documentId: string
-  documentName: string
-  page: number
-  snippet: string
-  score: number
+/** POST /chat/sessions/{id}/messages */
+export interface SendMessageRequest {
+  content: string
+  clientRequestId: string // uuid
 }

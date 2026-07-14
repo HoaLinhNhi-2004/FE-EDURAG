@@ -18,6 +18,7 @@ import {
   mockAccounts,
   tokenFor,
 } from './data'
+import { chatHandlers } from './chat.handlers'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
@@ -141,4 +142,4 @@ export const authHandlers = [
   }),
 ]
 
-export const handlers = [...authHandlers]
+export const handlers = [...authHandlers, ...chatHandlers]
