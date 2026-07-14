@@ -15,4 +15,5 @@ export {
   PaperclipIcon,
   FileTextIcon,
   SparkleIcon,
+  XIcon,
 } from './icons'

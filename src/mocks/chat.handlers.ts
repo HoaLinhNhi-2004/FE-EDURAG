@@ -29,9 +29,21 @@ export const chatHandlers = [
     return ok(session, 201)
   }),
 
-  // POST /api/chat/sessions/{id}/messages — gửi câu hỏi, nhận câu trả lời RAG.
+  // POST /api/chat/sessions/{id}/messages — gửi câu hỏi (text hoặc ảnh), nhận câu trả lời RAG.
   http.post(`${API}/chat/sessions/:id/messages`, async ({ request }) => {
-    const { content } = (await request.json()) as SendMessageRequest
+    const contentType = request.headers.get('content-type') ?? ''
+    let content = ''
+    let imageName: string | null = null
+
+    // UC 11: ảnh gửi qua multipart; câu hỏi text gửi qua JSON.
+    if (contentType.includes('multipart/form-data')) {
+      const form = await request.formData()
+      content = (form.get('content') as string) ?? ''
+      const image = form.get('image')
+      if (image && typeof image !== 'string') imageName = image.name
+    } else {
+      content = ((await request.json()) as SendMessageRequest).content
+    }
     const q = content.toLowerCase()
 
     // Mô phỏng timeout / RAG lỗi để test exception flow (UC 7).
@@ -40,9 +52,39 @@ export const chatHandlers = [
       return fail(503, 'RAG_UNAVAILABLE', 'Trợ lý AI đang bận, vui lòng thử lại sau giây lát.')
     }
 
-    await delay(900) // mô phỏng độ trễ RAG
+    await delay(900) // mô phỏng độ trễ RAG (OCR/multimodal)
 
     const now = new Date().toISOString()
+
+    // UC 11 — ảnh: mô phỏng OCR fail nếu tên file gợi ý ảnh mờ; ngược lại trả tài liệu khớp.
+    if (imageName) {
+      if (/mo|blur|nhoe/i.test(imageName)) {
+        return ok<ChatMessage>({
+          id: ++messageSeq,
+          role: 'assistant',
+          content:
+            'Ảnh chưa đủ rõ để nhận diện nội dung (OCR không đọc được chữ). Vui lòng chụp lại rõ nét hơn.',
+          citations: [],
+          createdAt: now,
+        })
+      }
+      return ok<ChatMessage>({
+        id: ++messageSeq,
+        role: 'assistant',
+        content:
+          'Mình đã phân tích nội dung trong ảnh và tìm thấy các tài liệu liên quan trong kho học liệu:',
+        citations: [
+          {
+            id: 3,
+            documentId: 10,
+            documentName: 'Slide.pdf',
+            page: 6,
+            snippet: 'Nội dung khớp với hình ảnh bạn tải lên.',
+          },
+        ],
+        createdAt: now,
+      })
+    }
 
     // Ngoài phạm vi tài liệu → không bịa, không kèm trích dẫn.
     if (OUT_OF_SCOPE.some((k) => q.includes(k))) {

@@ -16,6 +16,8 @@ export interface ChatMessage {
   id: string | number
   role: 'user' | 'assistant'
   content: string
+  /** URL ảnh đính kèm (UC 11) — client dùng object URL để hiển thị tin của chính mình. */
+  imageUrl?: string
   citations?: Citation[]
   createdAt: string
 }

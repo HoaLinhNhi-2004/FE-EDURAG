@@ -7,14 +7,25 @@ import type {
   SendMessageRequest,
 } from '@/types'
 
-// /api/chat/sessions — tạo phiên và gửi câu hỏi tới RAG (UC 7).
+// /api/chat/sessions — tạo phiên và gửi câu hỏi tới RAG (UC 7, UC 11).
 export const chatApi = {
   createSession: (body: CreateSessionRequest = {}) =>
     apiClient.post<ApiResponse<ChatSession>>('/chat/sessions', body).then((r) => r.data.data),
 
-  // Trả về message của trợ lý (kèm citations). Shape data là giả định — chờ BE xác nhận.
-  sendMessage: (sessionId: number, body: SendMessageRequest) =>
-    apiClient
-      .post<ApiResponse<ChatMessage>>(`/chat/sessions/${sessionId}/messages`, body)
-      .then((r) => r.data.data),
+  /**
+   * Gửi tin nhắn. Nếu có ảnh (UC 11) → gửi multipart (content + clientRequestId + image).
+   * GIẢ ĐỊNH: OpenAPI hiện chỉ mô tả body JSON, chưa có field ảnh — cần BE xác nhận
+   * endpoint/định dạng thật (multipart? base64? content có còn bắt buộc?).
+   */
+  sendMessage: (sessionId: number, body: SendMessageRequest, image?: File) => {
+    const url = `/chat/sessions/${sessionId}/messages`
+    if (image) {
+      const form = new FormData()
+      form.append('content', body.content)
+      form.append('clientRequestId', body.clientRequestId)
+      form.append('image', image)
+      return apiClient.post<ApiResponse<ChatMessage>>(url, form).then((r) => r.data.data)
+    }
+    return apiClient.post<ApiResponse<ChatMessage>>(url, body).then((r) => r.data.data)
+  },
 }

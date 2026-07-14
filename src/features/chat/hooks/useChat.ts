@@ -13,15 +13,16 @@ export function useChat() {
   const sessionId = useRef<number | null>(null)
 
   const mutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, image }: { content: string; image?: File }) => {
       if (sessionId.current == null) {
         const session = await chatApi.createSession()
         sessionId.current = session.id
       }
-      return chatApi.sendMessage(sessionId.current, {
-        content,
-        clientRequestId: crypto.randomUUID(),
-      })
+      return chatApi.sendMessage(
+        sessionId.current,
+        { content, clientRequestId: crypto.randomUUID() },
+        image,
+      )
     },
     onSuccess: (assistantMessage) => {
       setMessages((prev) => [...prev, assistantMessage])
@@ -39,14 +40,20 @@ export function useChat() {
     },
   })
 
-  const send = (content: string) => {
+  const send = (content: string, image?: File) => {
     const text = content.trim()
-    if (!text || mutation.isPending) return
+    if ((!text && !image) || mutation.isPending) return
     setMessages((prev) => [
       ...prev,
-      { id: `u-${Date.now()}`, role: 'user', content: text, createdAt: new Date().toISOString() },
+      {
+        id: `u-${Date.now()}`,
+        role: 'user',
+        content: text,
+        imageUrl: image ? URL.createObjectURL(image) : undefined,
+        createdAt: new Date().toISOString(),
+      },
     ])
-    mutation.mutate(text)
+    mutation.mutate({ content: text, image })
   }
 
   return { messages, send, isSending: mutation.isPending }
