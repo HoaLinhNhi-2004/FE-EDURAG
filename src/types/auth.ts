@@ -1,19 +1,22 @@
-export type Role = 'student' | 'lecturer' | 'admin'
+export type Role = 'STUDENT' | 'TEACHER' | 'ADMIN'
+export type UserStatus = 'PENDING' | 'ACTIVE' | 'LOCKED' | 'REJECTED'
 
 export interface User {
-  id: string
+  id: number
   fullName: string
   email: string
   role: Role
-  /** Mã số sinh viên — chỉ có với role student, readonly sau đăng ký (UC 5) */
+  status: UserStatus
+  /** Version auth — tăng khi đổi mật khẩu để vô hiệu JWT cũ. */
+  authVersion: number
+  phone?: string | null
+  /** Chỉ với STUDENT; readonly sau đăng ký (UC 5). */
   studentCode?: string
   dateOfBirth?: string // ISO yyyy-MM-dd
-  phone?: string
-  /** Học hàm/Học vị, Khoa — chỉ có với role lecturer (UC 15) */
-  academicTitle?: string
-  department?: string
-  /** Giảng viên mới đăng ký ở trạng thái pending cho tới khi Admin duyệt (UC 12) */
-  status: 'active' | 'pending' | 'locked'
+  /** Các trường của TEACHER (UC 15). */
+  academicTitle?: string | null
+  degree?: string | null
+  department?: string | null
 }
 
 export interface LoginRequest {
@@ -21,43 +24,60 @@ export interface LoginRequest {
   password: string
 }
 
+/** Login trả JWT cho STUDENT/TEACHER (ACTIVE); ADMIN nhận requireOtp (UC 19). */
 export interface LoginResponse {
-  accessToken: string
+  token: string
   user: User
 }
 
-/** UC 1 — đăng ký Sinh viên: email @student..., mật khẩu >=8 ký tự, MSV + ngày sinh bắt buộc */
-export interface RegisterStudentRequest {
-  fullName: string
-  email: string
-  password: string
-  studentCode: string
-  dateOfBirth: string
+export interface AdminOtpChallenge {
+  requireOtp: true
 }
 
-/** UC 12 — đăng ký Giảng viên: chờ Admin duyệt / xác thực email trường */
-export interface RegisterLecturerRequest {
-  fullName: string
+export type LoginResult = LoginResponse | AdminOtpChallenge
+
+/** POST /api/auth/register — gộp Student & Teacher, phân biệt bằng `role`. */
+export interface RegisterRequest {
   email: string
   password: string
+  fullName: string
+  phone?: string
+  role: 'STUDENT' | 'TEACHER'
+  studentCode?: string // bắt buộc với STUDENT
+  dateOfBirth?: string // bắt buộc với STUDENT
+  academicTitle?: string
+  degree?: string
+  department?: string
 }
 
 export interface ForgotPasswordRequest {
   email: string
 }
 
+/** POST /api/auth/reset-password — dùng token từ email + mật khẩu mới. */
 export interface ResetPasswordRequest {
-  otp: string // mã OTP từ email, hiệu lực 15 phút (UC 2)
+  token: string
   newPassword: string
 }
 
+/** PUT /api/profile/password */
 export interface ChangePasswordRequest {
   oldPassword: string
   newPassword: string
 }
 
-/** UC 19 — Admin login bước 2: xác thực OTP (2FA) */
+/** PUT /api/profile — MSV & email không nằm trong đây (không cho sửa). */
+export interface UpdateProfileRequest {
+  fullName?: string
+  phone?: string
+  dateOfBirth?: string
+  academicTitle?: string
+  degree?: string
+  department?: string
+}
+
+/** POST /api/auth/admin/verify-otp — OTP 6 chữ số. */
 export interface VerifyOtpRequest {
   email: string
-  otp: string
+  otpCode: string
 }

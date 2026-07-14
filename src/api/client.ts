@@ -22,7 +22,7 @@ apiClient.interceptors.request.use((config) => {
 // là đăng nhập thất bại → để màn Đăng nhập tự hiển thị lỗi, KHÔNG redirect.
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<{ code?: string; message?: string }>) => {
+  (error: AxiosError<{ errorCode?: string; message?: string }>) => {
     const isSessionExpired =
       error.response?.status === 401 &&
       Boolean(getAccessToken()) &&
@@ -36,11 +36,11 @@ apiClient.interceptors.response.use(
 )
 
 /** Chuẩn hóa mọi lỗi về ApiError để UI không phải đọc cấu trúc axios */
-function normalizeApiError(error: AxiosError<{ code?: string; message?: string }>): ApiError {
+function normalizeApiError(error: AxiosError<{ errorCode?: string; message?: string }>): ApiError {
   if (error.response) {
     return {
       status: error.response.status,
-      code: error.response.data?.code ?? 'SERVER_ERROR',
+      code: error.response.data?.errorCode ?? 'SERVER_ERROR',
       message: error.response.data?.message ?? 'Có lỗi xảy ra, vui lòng thử lại.',
     }
   }

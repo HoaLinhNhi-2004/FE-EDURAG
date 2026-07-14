@@ -36,9 +36,14 @@ export function LoginPage({ onGoRegister }: { onGoRegister?: () => void }) {
   const mutation = useMutation({
     mutationFn: authApi.login,
     onSuccess: (data) => {
-      login(data.accessToken, data.user)
-      // TODO(routing — LN Long): điều hướng theo role. Tạm về trang chủ.
-      navigate('/')
+      if ('token' in data) {
+        login(data.token, data.user)
+        // TODO(routing — LN Long): điều hướng theo role. Tạm về trang chủ.
+        navigate('/')
+      } else {
+        // ADMIN cần OTP (UC 19) — màn 2FA do LN Long phụ trách.
+        setApiError('Tài khoản Admin cần xác thực OTP ở cổng quản trị (2FA).')
+      }
     },
     onError: (err: ApiError) => setApiError(err.message),
   })

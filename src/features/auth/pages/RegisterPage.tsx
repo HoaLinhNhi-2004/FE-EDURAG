@@ -45,18 +45,32 @@ export function RegisterPage({ onGoLogin }: { onGoLogin?: () => void }) {
     },
   })
 
-  const mutation = useMutation({
-    mutationFn: authApi.registerStudent,
+  // register không trả JWT → đăng ký xong tự đăng nhập để đạt UC 1 ("tự động đăng nhập").
+  const loginMutation = useMutation({
+    mutationFn: authApi.login,
     onSuccess: (data) => {
-      login(data.accessToken, data.user) // UC 1: tự đăng nhập sau khi đăng ký
-      navigate('/')
+      if ('token' in data) {
+        login(data.token, data.user)
+        navigate('/')
+      }
     },
     onError: (err: ApiError) => setApiError(err.message),
   })
 
+  const registerMutation = useMutation({
+    mutationFn: authApi.register,
+    onSuccess: (_data, variables) => {
+      loginMutation.mutate({ email: variables.email, password: variables.password })
+    },
+    onError: (err: ApiError) => setApiError(err.message),
+  })
+
+  const submitting = registerMutation.isPending || loginMutation.isPending
+
   const onSubmit = (values: RegisterFormValues) => {
     setApiError(null)
-    mutation.mutate({
+    registerMutation.mutate({
+      role: 'STUDENT',
       fullName: values.fullName,
       email: values.email,
       password: values.password,
@@ -170,7 +184,7 @@ export function RegisterPage({ onGoLogin }: { onGoLogin?: () => void }) {
           />
         </FormField>
 
-        <Button type="submit" fullWidth loading={mutation.isPending}>
+        <Button type="submit" fullWidth loading={submitting}>
           Tạo tài khoản
           <ArrowRightIcon width={18} height={18} />
         </Button>
