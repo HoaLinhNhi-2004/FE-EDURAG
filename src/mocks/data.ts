@@ -1,4 +1,4 @@
-import type { User } from '@/types'
+import type { ChatMessage, ChatSession, CourseDocument, DocumentVersion, SearchResult, User } from '@/types'
 
 /**
  * Kho tài khoản giả lập cho MSW. Mật khẩu để riêng, không nằm trong User trả về.
@@ -70,3 +70,125 @@ export const findAccountByToken = (token: string | null) => {
   const id = Number(token.replace('mock.access.', ''))
   return mockAccounts.find((a) => a.user.id === id)
 }
+
+export const mockChatSessions: ChatSession[] = [
+  { id: 'session-1', title: 'Hỏi về đề cương môn AI', updatedAt: '2026-07-10T09:30:00.000Z' },
+  { id: 'session-2', title: 'Tổng hợp tài liệu RAG', updatedAt: '2026-07-11T14:20:00.000Z' },
+]
+
+export const mockChatMessages: Record<string, ChatMessage[]> = {
+  'session-1': [
+    {
+      id: 'msg-1',
+      role: 'user',
+      content: 'Môn AI cần chuẩn bị những nội dung gì?',
+      createdAt: '2026-07-10T09:29:00.000Z',
+    },
+    {
+      id: 'msg-2',
+      role: 'assistant',
+      content: 'Bạn nên chuẩn bị các khái niệm về ML, mạng nơ-ron và ứng dụng RAG trong giáo dục.',
+      citations: [
+        {
+          documentId: 'doc-1',
+          documentName: 'AI cơ bản.pdf',
+          page: 3,
+          snippet: 'RAG giúp kết hợp nguồn tri thức ngoại vi với phản hồi người dùng.',
+        },
+      ],
+      createdAt: '2026-07-10T09:30:00.000Z',
+    },
+  ],
+  'session-2': [
+    {
+      id: 'msg-3',
+      role: 'user',
+      content: 'Cho tôi ví dụ về cách dùng RAG để trả lời câu hỏi học tập.',
+      createdAt: '2026-07-11T14:18:00.000Z',
+    },
+    {
+      id: 'msg-4',
+      role: 'assistant',
+      content: 'Bạn có thể dùng vector search trên tài liệu bài giảng và trả về citation rõ ràng.',
+      createdAt: '2026-07-11T14:20:00.000Z',
+    },
+  ],
+}
+
+export const mockSearchResults: SearchResult[] = [
+  {
+    documentId: 'doc-1',
+    documentName: 'AI cơ bản.pdf',
+    page: 3,
+    snippet: 'RAG giúp kết hợp nguồn tri thức ngoại vi với phản hồi người dùng.',
+    score: 0.98,
+  },
+  {
+    documentId: 'doc-2',
+    documentName: 'Xử lý ngôn ngữ tự nhiên.pdf',
+    page: 5,
+    snippet: 'Các hệ thống RAG sử dụng embedding và truy vấn văn bản hiệu quả.',
+    score: 0.87,
+  },
+]
+
+export const mockDocuments: CourseDocument[] = [
+  {
+    id: 'doc-1',
+    name: 'AI cơ bản.pdf',
+    fileType: 'pdf',
+    courseId: 'CS101',
+    courseName: 'Trí tuệ nhân tạo',
+    sizeBytes: 1_024_000,
+    status: 'ready',
+    hidden: false,
+    uploadedBy: 'Nguyễn Văn A',
+    uploadedAt: '2026-07-01T10:00:00.000Z',
+    currentVersion: 3,
+  },
+  {
+    id: 'doc-2',
+    name: 'Tài liệu RAG.pdf',
+    fileType: 'pdf',
+    courseId: 'CS102',
+    courseName: 'Hệ thống thông minh',
+    sizeBytes: 760_000,
+    status: 'indexing',
+    hidden: false,
+    uploadedBy: 'Trần Thị B',
+    uploadedAt: '2026-07-05T11:10:00.000Z',
+    currentVersion: 1,
+  },
+]
+
+export const mockDocumentVersions: Record<string, DocumentVersion[]> = {
+  'doc-1': [
+    { version: 1, uploadedAt: '2026-06-10T08:00:00.000Z', uploadedBy: 'Nguyễn Văn A' },
+    { version: 2, uploadedAt: '2026-06-20T08:00:00.000Z', uploadedBy: 'Nguyễn Văn A' },
+    { version: 3, uploadedAt: '2026-07-01T10:00:00.000Z', uploadedBy: 'Nguyễn Văn A' },
+  ],
+  'doc-2': [
+    { version: 1, uploadedAt: '2026-07-05T11:10:00.000Z', uploadedBy: 'Trần Thị B' },
+  ],
+}
+
+export const mockAdminUsers: User[] = [
+  mockAccounts[0].user,
+  mockAccounts[1].user,
+  {
+    id: 4,
+    fullName: 'Phạm Văn C',
+    email: 'sv1234@student.edu.vn',
+    role: 'STUDENT',
+    status: 'ACTIVE',
+    authVersion: 1,
+    studentCode: 'SV1234',
+    dateOfBirth: '2004-02-20',
+    phone: '0911222333',
+  },
+]
+
+export const mockPipelineSummary = [
+  { department: 'AI', queued: 2, indexing: 1, ready: 5, failed: 0 },
+  { department: 'NLP', queued: 1, indexing: 0, ready: 3, failed: 0 },
+]

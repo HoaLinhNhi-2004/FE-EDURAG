@@ -1,10 +1,19 @@
 import { http, HttpResponse, delay } from 'msw'
 import type {
+  AskRequest,
+  AskResponse,
   ChangePasswordRequest,
+  ChatMessage,
+  ChatSession,
+  CourseDocument,
+  DocumentVersion,
   LoginRequest,
   LoginResponse,
+  Paginated,
   RegisterRequest,
   ResetPasswordRequest,
+  SearchRequest,
+  SearchResult,
   UpdateProfileRequest,
   User,
   VerifyOtpRequest,
@@ -16,6 +25,13 @@ import {
   findAccountByToken,
   genId,
   mockAccounts,
+  mockAdminUsers,
+  mockChatMessages,
+  mockChatSessions,
+  mockDocumentVersions,
+  mockDocuments,
+  mockPipelineSummary,
+  mockSearchResults,
   tokenFor,
 } from './data'
 
@@ -138,6 +154,74 @@ export const authHandlers = [
     }
     account.password = newPassword
     return ok(null)
+  }),
+
+  // GET /api/chat/sessions — danh sách phiên chat
+  http.get(`${API}/chat/sessions`, async () => {
+    await delay(200)
+    return ok<Paginated<ChatSession>>({ items: mockChatSessions, total: mockChatSessions.length, offset: 0, limit: mockChatSessions.length })
+  }),
+
+  // GET /api/chat/sessions/:id/messages — tin nhắn trong phiên chat
+  http.get(new RegExp(`${API}/chat/sessions/(.+)/messages`), async ({ request }) => {
+    await delay(200)
+    const match = request.url.match(/\/chat\/sessions\/(.+)\/messages$/)
+    const sessionId = match?.[1]
+    if (!sessionId || !mockChatMessages[sessionId]) {
+      return fail(404, 'SESSION_NOT_FOUND', 'Phiên chat không tồn tại.')
+    }
+    const sessionMessages = mockChatMessages[sessionId]
+    return ok<Paginated<ChatMessage>>({ items: sessionMessages, total: sessionMessages.length, offset: 0, limit: sessionMessages.length })
+  }),
+
+  // POST /api/chat/ask — gửi câu hỏi và nhận câu trả lời giả lập
+  http.post(`${API}/chat/ask`, async ({ request }) => {
+    await delay(350)
+    const { question, sessionId } = (await request.json()) as AskRequest
+    const nextMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      role: 'assistant',
+      content: `Mock trả lời cho: ${question}`,
+      createdAt: new Date().toISOString(),
+    }
+    return ok<AskResponse>({ sessionId: sessionId ?? 'session-1', message: nextMessage })
+  }),
+
+  // POST /api/chat/search — tìm kiếm tài liệu trong kho
+  http.post(`${API}/chat/search`, async ({ request }) => {
+    await delay(200)
+    const { query } = (await request.json()) as SearchRequest
+    return ok<SearchResult[]>(mockSearchResults.filter((item) => item.snippet.includes(query) || item.documentName.includes(query)))
+  }),
+
+  // GET /api/documents — lưới tài liệu giảng viên
+  http.get(`${API}/documents`, async () => {
+    await delay(200)
+    return ok<Paginated<CourseDocument>>({ items: mockDocuments, total: mockDocuments.length, offset: 0, limit: mockDocuments.length })
+  }),
+
+  // GET /api/documents/:id/versions — lịch sử version
+  http.get(new RegExp(`${API}/documents/(.+)/versions`), async ({ request }) => {
+    await delay(200)
+    const match = request.url.match(/\/documents\/(.+)\/versions$/)
+    const documentId = match?.[1]
+    const versions = documentId ? mockDocumentVersions[documentId] : undefined
+    if (!documentId || !versions) {
+      return fail(404, 'DOCUMENT_NOT_FOUND', 'Tài liệu không tồn tại.')
+    }
+    return ok<DocumentVersion[]>(versions)
+  }),
+
+  // GET /api/admin/users — danh sách người dùng cho dashboard admin
+  http.get(`${API}/admin/users`, async () => {
+    await delay(200)
+    return ok<Paginated<User>>({ items: mockAdminUsers, total: mockAdminUsers.length, offset: 0, limit: mockAdminUsers.length })
+  }),
+
+  // GET /api/admin/pipeline — tổng quan pipeline
+  http.get(`${API}/admin/pipeline`, async () => {
+    await delay(200)
+    return ok(mockPipelineSummary)
   }),
 ]
 
