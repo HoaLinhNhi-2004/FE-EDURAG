@@ -3,6 +3,10 @@ import { Button } from '@/components/ui'
 import { useAuth } from '@/store/auth'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
+import { ForgotPasswordPage } from '@/features/auth/pages/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/features/auth/pages/ResetPasswordPage'
+
+type AuthView = 'login' | 'register' | 'forgot' | 'reset'
 
 /**
  * App root TẠM: điều phối theo trạng thái đăng nhập để màn Client chạy độc lập
@@ -10,18 +14,27 @@ import { RegisterPage } from '@/features/auth/pages/RegisterPage'
  */
 function App() {
   const { status, isAuthenticated, user, logout } = useAuth()
-  const [view, setView] = useState<'login' | 'register'>('login')
+  const [view, setView] = useState<AuthView>('login')
 
   if (status === 'loading') {
     return <div className="flex min-h-screen items-center justify-center text-slate-500">Đang tải…</div>
   }
 
   if (!isAuthenticated) {
-    return view === 'login' ? (
-      <LoginPage onGoRegister={() => setView('register')} />
-    ) : (
-      <RegisterPage onGoLogin={() => setView('login')} />
-    )
+    switch (view) {
+      case 'register':
+        return <RegisterPage onGoLogin={() => setView('login')} />
+      case 'forgot':
+        return (
+          <ForgotPasswordPage onGoLogin={() => setView('login')} onGoReset={() => setView('reset')} />
+        )
+      case 'reset':
+        return <ResetPasswordPage onGoLogin={() => setView('login')} />
+      default:
+        return (
+          <LoginPage onGoRegister={() => setView('register')} onGoForgot={() => setView('forgot')} />
+        )
+    }
   }
 
   return (

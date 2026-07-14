@@ -19,7 +19,13 @@ import { AuthShell } from '../components/AuthShell'
 import { loginSchema, type LoginFormValues } from '../schemas'
 
 /** UC 3 — Màn Đăng nhập (luồng Client). */
-export function LoginPage({ onGoRegister }: { onGoRegister?: () => void }) {
+export function LoginPage({
+  onGoRegister,
+  onGoForgot,
+}: {
+  onGoRegister?: () => void
+  onGoForgot?: () => void
+}) {
   const navigate = useNavigate()
   const { login } = useAuth()
   const [apiError, setApiError] = useState<string | null>(null)
@@ -98,8 +104,11 @@ export function LoginPage({ onGoRegister }: { onGoRegister?: () => void }) {
             />
             Ghi nhớ đăng nhập
           </label>
-          {/* TODO(routing): trỏ tới màn Quên mật khẩu (UC 2). */}
-          <button type="button" className="text-sm font-medium text-indigo-600 hover:underline">
+          <button
+            type="button"
+            onClick={onGoForgot}
+            className="text-sm font-medium text-indigo-600 hover:underline"
+          >
             Quên mật khẩu?
           </button>
         </div>
