@@ -17,10 +17,11 @@ export function ForgotPasswordPage({
   onGoReset,
 }: {
   onGoLogin?: () => void
-  onGoReset?: () => void
+  onGoReset?: (email: string) => void
 }) {
   const [apiError, setApiError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
+  const [sentEmail, setSentEmail] = useState('')
 
   const {
     register,
@@ -33,7 +34,10 @@ export function ForgotPasswordPage({
 
   const mutation = useMutation({
     mutationFn: authApi.forgotPassword,
-    onSuccess: () => setSent(true),
+    onSuccess: (_data, variables) => {
+      setSentEmail(variables.email)
+      setSent(true)
+    },
     onError: (err: ApiError) => setApiError(err.message),
   })
 
@@ -55,7 +59,7 @@ export function ForgotPasswordPage({
             Nếu email tồn tại trong hệ thống, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu tới đó.
             Vui lòng kiểm tra hộp thư (kể cả mục Spam). Liên kết có hiệu lực trong 15 phút.
           </Alert>
-          <Button fullWidth onClick={onGoReset}>
+          <Button fullWidth onClick={() => onGoReset?.(sentEmail)}>
             Tôi đã có mã đặt lại
             <ArrowRightIcon width={18} height={18} />
           </Button>

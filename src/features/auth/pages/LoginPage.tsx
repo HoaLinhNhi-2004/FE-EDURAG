@@ -12,13 +12,14 @@ import {
   LockIcon,
   MailIcon,
 } from '@/components/ui'
-import type { ApiError } from '@/types'
+import type { ApiError, LoginResponse } from '@/types'
 import { authApi } from '@/api/auth.api'
 import { useAuth } from '@/store/auth'
 import { AuthShell } from '../components/AuthShell'
+import { AdminOtpStep } from '../components/AdminOtpStep'
 import { loginSchema, type LoginFormValues } from '../schemas'
 
-/** UC 3 — Màn Đăng nhập (luồng Client). */
+/** UC 3 — Màn Đăng nhập (luồng Client); UC 19 — Admin chuyển sang bước OTP 2FA. */
 export function LoginPage({
   onGoRegister,
   onGoForgot,
@@ -29,6 +30,13 @@ export function LoginPage({
   const navigate = useNavigate()
   const { login } = useAuth()
   const [apiError, setApiError] = useState<string | null>(null)
+  const [otpEmail, setOtpEmail] = useState<string | null>(null)
+
+  const onAuthenticated = (data: LoginResponse) => {
+    login(data.token, data.user)
+    // TODO(routing — LN Long): điều hướng theo role. Tạm về trang chủ.
+    navigate('/')
+  }
 
   const {
     register,
@@ -41,14 +49,12 @@ export function LoginPage({
 
   const mutation = useMutation({
     mutationFn: authApi.login,
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if ('token' in data) {
-        login(data.token, data.user)
-        // TODO(routing — LN Long): điều hướng theo role. Tạm về trang chủ.
-        navigate('/')
+        onAuthenticated(data)
       } else {
-        // ADMIN cần OTP (UC 19) — màn 2FA do LN Long phụ trách.
-        setApiError('Tài khoản Admin cần xác thực OTP ở cổng quản trị (2FA).')
+        // ADMIN cần OTP (UC 19) → chuyển sang bước nhập OTP, mang theo email.
+        setOtpEmail(variables.email)
       }
     },
     onError: (err: ApiError) => setApiError(err.message),
@@ -57,6 +63,18 @@ export function LoginPage({
   const onSubmit = (values: LoginFormValues) => {
     setApiError(null)
     mutation.mutate({ email: values.email, password: values.password })
+  }
+
+  if (otpEmail) {
+    return (
+      <AuthShell>
+        <AdminOtpStep
+          email={otpEmail}
+          onVerified={onAuthenticated}
+          onBack={() => setOtpEmail(null)}
+        />
+      </AuthShell>
+    )
   }
 
   return (
