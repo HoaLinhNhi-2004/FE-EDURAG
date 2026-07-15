@@ -7,6 +7,8 @@ import type {
   RegisterRequest,
   ResetPasswordRequest,
   VerifyOtpRequest,
+  VerifyResetOtpRequest,
+  VerifyResetOtpResponse,
 } from '@/types'
 
 // Path khớp OpenAPI (server base .../api). Đổi mật khẩu & profile ở profile.api.ts.
@@ -27,6 +29,12 @@ export const authApi = {
 
   forgotPassword: (body: ForgotPasswordRequest) =>
     apiClient.post<ApiResponse<null>>('/auth/forgot-password', body).then((r) => r.data),
+
+  // GIẢ ĐỊNH endpoint (chưa có trong OpenAPI) — xác thực OTP quên mật khẩu, chờ BE.
+  verifyResetOtp: (body: VerifyResetOtpRequest) =>
+    apiClient
+      .post<ApiResponse<VerifyResetOtpResponse>>('/auth/verify-reset-otp', body)
+      .then((r) => r.data.data),
 
   resetPassword: (body: ResetPasswordRequest) =>
     apiClient.post<ApiResponse<null>>('/auth/reset-password', body).then((r) => r.data),

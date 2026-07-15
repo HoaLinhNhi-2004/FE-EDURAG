@@ -19,6 +19,7 @@ type AppView = 'chat' | 'profile'
 function App() {
   const { status, isAuthenticated, user, logout } = useAuth()
   const [view, setView] = useState<AuthView>('login')
+  const [resetEmail, setResetEmail] = useState('')
   const [appView, setAppView] = useState<AppView>('chat')
 
   if (status === 'loading') {
@@ -31,10 +32,16 @@ function App() {
         return <RegisterPage onGoLogin={() => setView('login')} />
       case 'forgot':
         return (
-          <ForgotPasswordPage onGoLogin={() => setView('login')} onGoReset={() => setView('reset')} />
+          <ForgotPasswordPage
+            onGoLogin={() => setView('login')}
+            onGoReset={(email) => {
+              setResetEmail(email)
+              setView('reset')
+            }}
+          />
         )
       case 'reset':
-        return <ResetPasswordPage onGoLogin={() => setView('login')} />
+        return <ResetPasswordPage email={resetEmail} onGoLogin={() => setView('login')} />
       default:
         return (
           <LoginPage onGoRegister={() => setView('register')} onGoForgot={() => setView('forgot')} />

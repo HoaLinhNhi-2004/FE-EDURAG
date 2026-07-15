@@ -92,7 +92,18 @@ export const authHandlers = [
     return ok(null)
   }),
 
-  // POST /api/auth/reset-password — token từ email + mật khẩu mới.
+  // POST /api/auth/verify-reset-otp — bước 1 của reset: xác thực OTP, đổi lấy resetToken.
+  // GIẢ ĐỊNH endpoint (chưa có trong OpenAPI) — chờ BE xác nhận.
+  http.post(`${API}/auth/verify-reset-otp`, async ({ request }) => {
+    await delay(300)
+    const { otpCode } = (await request.json()) as { email: string; otpCode: string }
+    if (otpCode !== MOCK_OTP) {
+      return fail(400, 'OTP_INVALID', 'Mã OTP không đúng hoặc đã hết hạn.')
+    }
+    return ok({ resetToken: MOCK_RESET_TOKEN })
+  }),
+
+  // POST /api/auth/reset-password — bước 2: resetToken + mật khẩu mới.
   http.post(`${API}/auth/reset-password`, async ({ request }) => {
     await delay(300)
     const { token } = (await request.json()) as ResetPasswordRequest
