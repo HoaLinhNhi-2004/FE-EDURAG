@@ -5,7 +5,8 @@ import { getAccessToken, clearAccessToken } from '@/utils/token'
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   timeout: 30_000,
-  headers: { 'Content-Type': 'application/json' },
+  // Không set Content-Type mặc định: axios tự đặt application/json cho object,
+  // và multipart/form-data (kèm boundary) cho FormData — cần cho upload ảnh (UC 11).
 })
 
 // Tự gắn JWT vào mọi request (UC 3)

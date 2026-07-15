@@ -1,0 +1,55 @@
+import { useEffect, useRef } from 'react'
+import { SparkleIcon } from '@/components/ui'
+import { useChat } from '../hooks/useChat'
+import { MessageBubble } from '../components/MessageBubble'
+import { TypingIndicator } from '../components/TypingIndicator'
+import { ChatInput } from '../components/ChatInput'
+
+/** UC 7 — Khung chat hỏi đáp thông minh (chỉ phần chat, không panel Nguồn/Lịch sử/PDF). */
+export function ChatPage() {
+  const { messages, send, isSending } = useChat()
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isSending])
+
+  const empty = messages.length === 0
+
+  return (
+    <section className="flex min-h-0 flex-1 flex-col">
+      <header className="border-b border-slate-200 px-6 py-3">
+        <h1 className="font-semibold text-slate-800">Cuộc trò chuyện</h1>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
+          {empty ? (
+            <div className="mt-16 flex flex-col items-center text-center text-slate-500">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                <SparkleIcon width={28} height={28} />
+              </div>
+              <p className="mt-4 text-lg font-semibold text-slate-700">Hỏi đáp về nội dung môn học</p>
+              <p className="mt-1 max-w-sm text-sm">
+                Đặt câu hỏi bằng ngôn ngữ tự nhiên, AI sẽ trả lời kèm trích dẫn nguồn từ tài liệu.
+              </p>
+            </div>
+          ) : (
+            messages.map((m) => <MessageBubble key={m.id} message={m} />)
+          )}
+          {isSending && <TypingIndicator />}
+          <div ref={bottomRef} />
+        </div>
+      </div>
+
+      <div className="border-t border-slate-200 px-4 py-3">
+        <div className="mx-auto max-w-3xl">
+          <ChatInput onSend={send} disabled={isSending} />
+          <p className="mt-2 text-center text-xs text-slate-400">
+            EduRAG có thể mắc lỗi. Luôn kiểm tra thông tin từ tài liệu gốc.
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}

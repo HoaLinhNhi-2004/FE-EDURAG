@@ -11,4 +11,10 @@ export {
   UserIcon,
   IdCardIcon,
   CalendarIcon,
+  SendIcon,
+  PaperclipIcon,
+  FileTextIcon,
+  SparkleIcon,
+  XIcon,
+  PhoneIcon,
 } from './icons'
