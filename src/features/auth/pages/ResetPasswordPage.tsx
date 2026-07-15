@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { Alert, ArrowRightIcon, Button, FormField, Input, LockIcon } from '@/components/ui'
 import type { ApiError } from '@/types'
 import { authApi } from '@/api/auth.api'
@@ -20,12 +21,15 @@ import {
  * `email` được mang từ màn Quên mật khẩu.
  */
 export function ResetPasswordPage({
-  email,
+  email: emailProp,
   onGoLogin,
 }: {
-  email: string
+  /** Ưu tiên prop (App tạm); router của Long truyền qua query param ?email=. */
+  email?: string
   onGoLogin?: () => void
 }) {
+  const [searchParams] = useSearchParams()
+  const email = emailProp ?? searchParams.get('email') ?? ''
   const [step, setStep] = useState<'otp' | 'password'>('otp')
   const [resetToken, setResetToken] = useState('')
   const [done, setDone] = useState(false)

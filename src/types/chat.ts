@@ -38,3 +38,30 @@ export interface SendMessageRequest {
   content: string
   clientRequestId: string // uuid
 }
+
+/** UC 8 — Tìm kiếm ngữ nghĩa (mock của LN Long). */
+export interface SearchRequest {
+  query: string
+}
+
+export interface SearchResult {
+  documentId: number
+  documentName: string
+  page: number
+  snippet: string
+  score: number
+}
+
+/**
+ * Contract chat cũ dùng bởi mock lịch sử của LN Long (/chat/ask).
+ * TODO(hợp nhất): trùng chức năng với luồng /chat/sessions/{id}/messages — cần thống nhất với Long.
+ */
+export interface AskRequest {
+  question: string
+  sessionId?: number
+}
+
+export interface AskResponse {
+  sessionId: number
+  message: ChatMessage
+}
