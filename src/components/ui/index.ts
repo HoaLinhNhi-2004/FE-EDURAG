@@ -16,4 +16,5 @@ export {
   FileTextIcon,
   SparkleIcon,
   XIcon,
+  PhoneIcon,
 } from './icons'
