@@ -166,10 +166,17 @@ export const authHandlers = [
     return ok(null)
   }),
 
-  // GET /api/chat/sessions — danh sách phiên chat
+  // GET /api/chat/sessions — danh sách phiên chat (UC 9), mới nhất trước.
+  // preview = câu hỏi đầu phiên, messageCount = số tin nhắn thực tế trong kho.
   http.get(`${API}/chat/sessions`, async () => {
     await delay(200)
-    return ok<Paginated<ChatSession>>({ items: mockChatSessions, total: mockChatSessions.length, offset: 0, limit: mockChatSessions.length })
+    const items: ChatSession[] = [...mockChatSessions]
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+      .map((s) => {
+        const msgs = mockChatMessages[String(s.id)] ?? []
+        return { ...s, preview: msgs[0]?.content ?? '', messageCount: msgs.length }
+      })
+    return ok<Paginated<ChatSession>>({ items, total: items.length, offset: 0, limit: items.length })
   }),
 
   // GET /api/chat/sessions/:id/messages — tin nhắn trong phiên chat

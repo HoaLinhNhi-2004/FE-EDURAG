@@ -1,5 +1,6 @@
 import { http, HttpResponse, delay } from 'msw'
 import type { ChatMessage, ChatSession, SendMessageRequest } from '@/types'
+import { genMessageId, genSessionId, mockChatMessages, mockChatSessions } from './data'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
@@ -8,29 +9,55 @@ const ok = <T>(data: T, status = 200) =>
 const fail = (status: number, errorCode: string, message: string) =>
   HttpResponse.json({ success: false, message, errorCode }, { status })
 
-let sessionSeq = 1000
-let messageSeq = 5000
-
 // Từ khóa mô phỏng câu hỏi ngoài phạm vi tài liệu (UC 7: không bịa câu trả lời).
 const OUT_OF_SCOPE = ['thời tiết', 'bóng đá', 'nấu ăn', 'crypto', 'chứng khoán']
 
+/** Lưu tin nhắn vào kho dùng chung + cập nhật phiên (để màn Lịch sử phản ánh đúng). */
+const appendMessage = (sessionId: string, message: ChatMessage) => {
+  mockChatMessages[sessionId] = [...(mockChatMessages[sessionId] ?? []), message]
+  const session = mockChatSessions.find((s) => String(s.id) === sessionId)
+  if (session) {
+    session.updatedAt = message.createdAt
+    // Đặt tiêu đề phiên theo câu hỏi đầu tiên (giống cách các app chat vẫn làm).
+    if (session.title === 'Cuộc trò chuyện mới' && message.role === 'user') {
+      session.title = message.content.slice(0, 60) || session.title
+    }
+  }
+}
+
 export const chatHandlers = [
-  // POST /api/chat/sessions — tạo phiên chat mới.
+  // POST /api/chat/sessions — tạo phiên chat mới (lưu vào kho dùng chung → hiện ở Lịch sử).
   http.post(`${API}/chat/sessions`, async ({ request }) => {
     await delay(150)
     const body = (await request.json().catch(() => ({}))) as { title?: string }
     const now = new Date().toISOString()
     const session: ChatSession = {
-      id: ++sessionSeq,
+      id: genSessionId(),
       title: body.title ?? 'Cuộc trò chuyện mới',
       createdAt: now,
       updatedAt: now,
     }
+    mockChatSessions.push(session)
+    mockChatMessages[String(session.id)] = []
     return ok(session, 201)
   }),
 
+  // DELETE /api/chat/sessions/{id} — xóa phiên (UC 9). Trả 204 như OpenAPI.
+  http.delete(`${API}/chat/sessions/:id`, async ({ params }) => {
+    await delay(200)
+    const id = String(params.id)
+    const index = mockChatSessions.findIndex((s) => String(s.id) === id)
+    if (index === -1) {
+      return fail(404, 'SESSION_NOT_FOUND', 'Phiên chat không tồn tại.')
+    }
+    mockChatSessions.splice(index, 1)
+    delete mockChatMessages[id]
+    return new HttpResponse(null, { status: 204 })
+  }),
+
   // POST /api/chat/sessions/{id}/messages — gửi câu hỏi (text hoặc ảnh), nhận câu trả lời RAG.
-  http.post(`${API}/chat/sessions/:id/messages`, async ({ request }) => {
+  http.post(`${API}/chat/sessions/:id/messages`, async ({ request, params }) => {
+    const sessionId = String(params.id)
     const contentType = request.headers.get('content-type') ?? ''
     let content = ''
     let imageName: string | null = null
@@ -56,11 +83,25 @@ export const chatHandlers = [
 
     const now = new Date().toISOString()
 
+    // Lưu câu hỏi của người dùng vào kho dùng chung (để Lịch sử — UC 9 — có nội dung).
+    appendMessage(sessionId, {
+      id: genMessageId(),
+      role: 'user',
+      content: content || '[Ảnh đính kèm]',
+      createdAt: now,
+    })
+
+    // Lưu câu trả lời rồi mới trả về, để mở lại phiên vẫn thấy đủ hội thoại.
+    const reply = (message: ChatMessage) => {
+      appendMessage(sessionId, message)
+      return ok(message)
+    }
+
     // UC 11 — ảnh: mô phỏng OCR fail nếu tên file gợi ý ảnh mờ; ngược lại trả tài liệu khớp.
     if (imageName) {
       if (/mo|blur|nhoe/i.test(imageName)) {
-        return ok<ChatMessage>({
-          id: ++messageSeq,
+        return reply({
+          id: genMessageId(),
           role: 'assistant',
           content:
             'Ảnh chưa đủ rõ để nhận diện nội dung (OCR không đọc được chữ). Vui lòng chụp lại rõ nét hơn.',
@@ -68,8 +109,8 @@ export const chatHandlers = [
           createdAt: now,
         })
       }
-      return ok<ChatMessage>({
-        id: ++messageSeq,
+      return reply({
+        id: genMessageId(),
         role: 'assistant',
         content:
           'Mình đã phân tích nội dung trong ảnh và tìm thấy các tài liệu liên quan trong kho học liệu:',
@@ -88,20 +129,19 @@ export const chatHandlers = [
 
     // Ngoài phạm vi tài liệu → không bịa, không kèm trích dẫn.
     if (OUT_OF_SCOPE.some((k) => q.includes(k))) {
-      const message: ChatMessage = {
-        id: ++messageSeq,
+      return reply({
+        id: genMessageId(),
         role: 'assistant',
         content:
           'Xin lỗi, mình không tìm thấy thông tin liên quan trong tài liệu môn học để trả lời câu hỏi này.',
         citations: [],
         createdAt: now,
-      }
-      return ok(message)
+      })
     }
 
     // Trong phạm vi → trả lời kèm ít nhất 1 trích dẫn (UC 7).
-    const message: ChatMessage = {
-      id: ++messageSeq,
+    return reply({
+      id: genMessageId(),
       role: 'assistant',
       content: [
         `Dựa trên tài liệu môn học, đây là nội dung liên quan đến câu hỏi của bạn:`,
@@ -127,7 +167,6 @@ export const chatHandlers = [
         },
       ],
       createdAt: now,
-    }
-    return ok(message)
+    })
   }),
 ]

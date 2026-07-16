@@ -25,6 +25,7 @@ const ForgotPasswordPage = lazy(
 const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
 const ChatPage = lazy(() => import('@/features/chat/pages/ChatPage').then((m) => ({ default: m.ChatPage })))
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
+const HistoryPage = lazy(() => import('@/features/chat/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
 
 // Placeholder cho khu vực Giảng viên/Admin (LN Long)
 function DashboardHome() {
@@ -101,6 +102,20 @@ export const router = createBrowserRouter([
         <ClientLayout>
           <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
             <ChatPage />
+          </Suspense>
+        </ClientLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  // Lịch sử trò chuyện (UC 9)
+  {
+    path: '/student/history',
+    element: (
+      <ProtectedRoute allowedRoles={["STUDENT"] as Role[]}>
+        <ClientLayout>
+          <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
+            <HistoryPage />
           </Suspense>
         </ClientLayout>
       </ProtectedRoute>
