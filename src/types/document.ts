@@ -2,7 +2,8 @@
 export type IndexStatus = 'queued' | 'ocr' | 'parsing' | 'indexing' | 'ready' | 'failed'
 
 export interface CourseDocument {
-  id: string
+  /** Khớp OpenAPI: id tài liệu là integer (cùng kiểu với Citation.documentId). */
+  id: number
   name: string
   fileType: 'pdf' | 'docx' | 'pptx'
   courseId: string

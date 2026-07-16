@@ -23,12 +23,11 @@ const ForgotPasswordPage = lazy(
   () => import('@/features/auth/pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
 )
 const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
+const ChatPage = lazy(() => import('@/features/chat/pages/ChatPage').then((m) => ({ default: m.ChatPage })))
+const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
+const HistoryPage = lazy(() => import('@/features/chat/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
 
-// Simple placeholder pages for student/client and dashboard
-function StudentHome() {
-  return <div>Chào mừng Sinh viên — Trang trò chuyện</div>
-}
-
+// Placeholder cho khu vực Giảng viên/Admin (LN Long)
 function DashboardHome() {
   return <div>Chào mừng vào Bảng điều khiển (GV / Admin)</div>
 }
@@ -95,13 +94,43 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // Student area (ClientLayout)
+  // Student area (ClientLayout) — Hỏi đáp AI (UC 7, 11)
   {
     path: '/student',
     element: (
-      <ProtectedRoute allowedRoles={["STUDENT"] as Role[]}>
+      <ProtectedRoute allowedRoles={['STUDENT'] as Role[]}>
         <ClientLayout>
-          <StudentHome />
+          <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
+            <ChatPage />
+          </Suspense>
+        </ClientLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  // Lịch sử trò chuyện (UC 9)
+  {
+    path: '/student/history',
+    element: (
+      <ProtectedRoute allowedRoles={['STUDENT'] as Role[]}>
+        <ClientLayout>
+          <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
+            <HistoryPage />
+          </Suspense>
+        </ClientLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  // Hồ sơ cá nhân sinh viên (UC 4, 5, 6)
+  {
+    path: '/student/profile',
+    element: (
+      <ProtectedRoute allowedRoles={['STUDENT'] as Role[]}>
+        <ClientLayout>
+          <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
+            <ProfilePage />
+          </Suspense>
         </ClientLayout>
       </ProtectedRoute>
     ),
@@ -111,7 +140,7 @@ export const router = createBrowserRouter([
   {
     path: '/dashboard',
     element: (
-      <ProtectedRoute allowedRoles={["TEACHER", "ADMIN"] as Role[]}>
+      <ProtectedRoute allowedRoles={['TEACHER', 'ADMIN'] as Role[]}>
         <DashboardLayout>
           <DashboardHome />
         </DashboardLayout>

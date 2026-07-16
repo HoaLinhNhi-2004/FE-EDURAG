@@ -17,6 +17,7 @@ function base(props: IconProps) {
   }
 }
 
+// ─── Auth icons ───────────────────────────────────────────────────────────────
 export function MailIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -72,6 +73,24 @@ export function CalendarIcon(props: IconProps) {
   )
 }
 
+// ─── Chat / messaging icons ───────────────────────────────────────────────────
+/** Icon gửi — mũi tên lên */
+export function SendIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 19V5M5 12l7-7 7 7" />
+    </svg>
+  )
+}
+
+export function PaperclipIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7L10 12.7a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />
+    </svg>
+  )
+}
+
 export function ChatBubbleIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -80,26 +99,15 @@ export function ChatBubbleIcon(props: IconProps) {
   )
 }
 
-export function ClockIcon(props: IconProps) {
+export function SparkleIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 3" />
+      <path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15l-1.8-4.9L5.3 9l4.9-1.8L12 3Z" />
     </svg>
   )
 }
 
-export function DocumentIcon(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <line x1="9" y1="13" x2="15" y2="13" />
-      <line x1="9" y1="17" x2="13" y2="17" />
-    </svg>
-  )
-}
-
+// ─── Navigation / UI icons ────────────────────────────────────────────────────
 export function ChevronDownIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -116,6 +124,23 @@ export function ChevronUpIcon(props: IconProps) {
   )
 }
 
+export function SearchIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  )
+}
+
+export function XIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  )
+}
+
 export function LogOutIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -126,12 +151,52 @@ export function LogOutIcon(props: IconProps) {
   )
 }
 
+// ─── Document / file icons ────────────────────────────────────────────────────
+export function DocumentIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="9" y1="13" x2="15" y2="13" />
+      <line x1="9" y1="17" x2="13" y2="17" />
+    </svg>
+  )
+}
+
+export function FileTextIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5M9 13h6M9 17h4" />
+    </svg>
+  )
+}
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      <path d="M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7M10 11v6M14 11v6" />
+    </svg>
+  )
+}
+
 export function UploadIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  )
+}
+
+// ─── Dashboard / system icons ─────────────────────────────────────────────────
+export function ClockIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
     </svg>
   )
 }
@@ -170,6 +235,14 @@ export function ZapIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  )
+}
+
+export function PhoneIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L14 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 2 6a2 2 0 0 1 2-2Z" />
     </svg>
   )
 }

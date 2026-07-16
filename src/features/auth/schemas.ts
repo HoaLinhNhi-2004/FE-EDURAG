@@ -43,10 +43,14 @@ export const forgotPasswordSchema = z.object({
   email: z.string().min(1, 'Vui lòng nhập email').email('Email không đúng định dạng'),
 })
 
-// UC 2 — Đặt lại mật khẩu bằng token từ email (hiệu lực 15 phút, kiểm tra ở BE).
+// OTP 6 chữ số — dùng cho 2FA Admin (UC 19) và xác thực quên mật khẩu (UC 2).
+export const otpSchema = z.object({
+  otpCode: z.string().regex(/^\d{6}$/, 'Mã OTP gồm 6 chữ số'),
+})
+
+// UC 2 — Đặt mật khẩu mới (sau khi đã xác thực OTP). Token lấy từ bước OTP, không nằm trong form.
 export const resetPasswordSchema = z
   .object({
-    token: z.string().min(1, 'Thiếu mã đặt lại mật khẩu'),
     newPassword: password,
     confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
   })
@@ -75,5 +79,6 @@ export const changePasswordSchema = z
 export type RegisterFormValues = z.infer<typeof registerSchema>
 export type LoginFormValues = z.infer<typeof loginSchema>
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>
+export type OtpFormValues = z.infer<typeof otpSchema>
 export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>
 export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>

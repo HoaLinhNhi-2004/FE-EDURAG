@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { Alert, ArrowRightIcon, Button, FormField, Input, MailIcon } from '@/components/ui'
 import type { ApiError } from '@/types'
 import { authApi } from '@/api/auth.api'
@@ -12,15 +13,11 @@ import { forgotPasswordSchema, type ForgotPasswordFormValues } from '../schemas'
  * UC 2 (bước 1) — Quên mật khẩu: nhập email nhận mã/liên kết đặt lại.
  * Luôn hiển thị thông báo chung dù email có tồn tại hay không (chống dò tài khoản).
  */
-export function ForgotPasswordPage({
-  onGoLogin,
-  onGoReset,
-}: {
-  onGoLogin?: () => void
-  onGoReset?: () => void
-}) {
+export function ForgotPasswordPage() {
+  const navigate = useNavigate()
   const [apiError, setApiError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
+  const [sentEmail, setSentEmail] = useState('')
 
   const {
     register,
@@ -33,7 +30,10 @@ export function ForgotPasswordPage({
 
   const mutation = useMutation({
     mutationFn: authApi.forgotPassword,
-    onSuccess: () => setSent(true),
+    onSuccess: (_data, variables) => {
+      setSentEmail(variables.email)
+      setSent(true)
+    },
     onError: (err: ApiError) => setApiError(err.message),
   })
 
@@ -55,7 +55,7 @@ export function ForgotPasswordPage({
             Nếu email tồn tại trong hệ thống, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu tới đó.
             Vui lòng kiểm tra hộp thư (kể cả mục Spam). Liên kết có hiệu lực trong 15 phút.
           </Alert>
-          <Button fullWidth onClick={onGoReset}>
+          <Button fullWidth onClick={() => navigate(`/reset?email=${encodeURIComponent(sentEmail)}`)}>
             Tôi đã có mã đặt lại
             <ArrowRightIcon width={18} height={18} />
           </Button>
@@ -89,7 +89,11 @@ export function ForgotPasswordPage({
 
       <p className="mt-6 text-center text-sm text-slate-600">
         Nhớ mật khẩu rồi?{' '}
-        <button type="button" onClick={onGoLogin} className="font-medium text-indigo-600 hover:underline">
+        <button
+          type="button"
+          onClick={() => navigate('/login')}
+          className="font-medium text-indigo-600 hover:underline"
+        >
           Đăng nhập
         </button>
       </p>

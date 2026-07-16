@@ -1,6 +1,7 @@
 /*
   ClientLayout
   - Purpose: Layout cho người dùng (Sinh viên) khi dùng tính năng chat.
+<<<<<<< HEAD
   - Structure:
       • Sidebar trái cố định (160px): Logo EduRAG, 3 nav item có icon + active state,
         user profile (avatar initials + tên + mã SV + chevron) ở dưới cùng.
