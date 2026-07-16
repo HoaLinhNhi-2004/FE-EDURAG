@@ -1,7 +1,5 @@
 import { http, HttpResponse, delay } from 'msw'
 import type {
-  AskRequest,
-  AskResponse,
   ChangePasswordRequest,
   ChatMessage,
   ChatSession,
@@ -186,18 +184,8 @@ export const authHandlers = [
     return ok<Paginated<ChatMessage>>({ items: sessionMessages, total: sessionMessages.length, offset: 0, limit: sessionMessages.length })
   }),
 
-  // POST /api/chat/ask — gửi câu hỏi và nhận câu trả lời giả lập
-  http.post(`${API}/chat/ask`, async ({ request }) => {
-    await delay(350)
-    const { question, sessionId } = (await request.json()) as AskRequest
-    const nextMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      role: 'assistant',
-      content: `Mock trả lời cho: ${question}`,
-      createdAt: new Date().toISOString(),
-    }
-    return ok<AskResponse>({ sessionId: sessionId ?? 1, message: nextMessage })
-  }),
+  // Gửi câu hỏi: dùng POST /api/chat/sessions/{id}/messages (xem chat.handlers.ts).
+  // /chat/ask (contract cũ) đã bỏ để thống nhất theo OpenAPI.
 
   // POST /api/chat/search — tìm kiếm tài liệu trong kho
   http.post(`${API}/chat/search`, async ({ request }) => {

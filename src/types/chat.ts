@@ -52,16 +52,3 @@ export interface SearchResult {
   score: number
 }
 
-/**
- * Contract chat cũ dùng bởi mock lịch sử của LN Long (/chat/ask).
- * TODO(hợp nhất): trùng chức năng với luồng /chat/sessions/{id}/messages — cần thống nhất với Long.
- */
-export interface AskRequest {
-  question: string
-  sessionId?: number
-}
-
-export interface AskResponse {
-  sessionId: number
-  message: ChatMessage
-}
