@@ -72,12 +72,22 @@ export const findAccountByToken = (token: string | null) => {
 }
 
 export const mockChatSessions: ChatSession[] = [
-  { id: 'session-1', title: 'Hỏi về đề cương môn AI', updatedAt: '2026-07-10T09:30:00.000Z' },
-  { id: 'session-2', title: 'Tổng hợp tài liệu RAG', updatedAt: '2026-07-11T14:20:00.000Z' },
+  {
+    id: 1,
+    title: 'Hỏi về đề cương môn AI',
+    createdAt: '2026-07-10T09:00:00.000Z',
+    updatedAt: '2026-07-10T09:30:00.000Z',
+  },
+  {
+    id: 2,
+    title: 'Tổng hợp tài liệu RAG',
+    createdAt: '2026-07-11T14:00:00.000Z',
+    updatedAt: '2026-07-11T14:20:00.000Z',
+  },
 ]
 
 export const mockChatMessages: Record<string, ChatMessage[]> = {
-  'session-1': [
+  '1': [
     {
       id: 'msg-1',
       role: 'user',
@@ -90,7 +100,8 @@ export const mockChatMessages: Record<string, ChatMessage[]> = {
       content: 'Bạn nên chuẩn bị các khái niệm về ML, mạng nơ-ron và ứng dụng RAG trong giáo dục.',
       citations: [
         {
-          documentId: 'doc-1',
+          id: 1,
+          documentId: 1,
           documentName: 'AI cơ bản.pdf',
           page: 3,
           snippet: 'RAG giúp kết hợp nguồn tri thức ngoại vi với phản hồi người dùng.',
@@ -99,7 +110,7 @@ export const mockChatMessages: Record<string, ChatMessage[]> = {
       createdAt: '2026-07-10T09:30:00.000Z',
     },
   ],
-  'session-2': [
+  '2': [
     {
       id: 'msg-3',
       role: 'user',
@@ -117,14 +128,14 @@ export const mockChatMessages: Record<string, ChatMessage[]> = {
 
 export const mockSearchResults: SearchResult[] = [
   {
-    documentId: 'doc-1',
+    documentId: 1,
     documentName: 'AI cơ bản.pdf',
     page: 3,
     snippet: 'RAG giúp kết hợp nguồn tri thức ngoại vi với phản hồi người dùng.',
     score: 0.98,
   },
   {
-    documentId: 'doc-2',
+    documentId: 2,
     documentName: 'Xử lý ngôn ngữ tự nhiên.pdf',
     page: 5,
     snippet: 'Các hệ thống RAG sử dụng embedding và truy vấn văn bản hiệu quả.',

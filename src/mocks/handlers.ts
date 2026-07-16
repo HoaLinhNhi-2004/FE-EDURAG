@@ -196,7 +196,7 @@ export const authHandlers = [
       content: `Mock trả lời cho: ${question}`,
       createdAt: new Date().toISOString(),
     }
-    return ok<AskResponse>({ sessionId: sessionId ?? 'session-1', message: nextMessage })
+    return ok<AskResponse>({ sessionId: sessionId ?? 1, message: nextMessage })
   }),
 
   // POST /api/chat/search — tìm kiếm tài liệu trong kho
