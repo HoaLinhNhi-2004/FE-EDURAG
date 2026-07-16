@@ -1,16 +1,34 @@
-import { useRef, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ApiError, ChatMessage } from '@/types'
 import { chatApi } from '@/api/chat.api'
 
 /**
- * Quản lý một cuộc trò chuyện (UC 7): giữ danh sách message ở client, tự tạo
- * session ở lần gửi đầu, gọi RAG và ghép câu trả lời. Lịch sử (UC 9) không thuộc
- * phạm vi này nên không tải lại từ server.
+ * Quản lý một cuộc trò chuyện (UC 7, UC 11).
+ * - Không truyền `initialSessionId` → phiên mới, tự tạo ở lần gửi đầu.
+ * - Có `initialSessionId` (mở từ Lịch sử — UC 9) → nạp lại hội thoại cũ và chat tiếp trong phiên đó.
  */
-export function useChat() {
+export function useChat(initialSessionId?: number) {
+  const queryClient = useQueryClient()
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const sessionId = useRef<number | null>(null)
+  const sessionId = useRef<number | null>(initialSessionId ?? null)
+
+  // Đổi phiên (hoặc mở phiên mới) → reset hội thoại đang hiển thị.
+  useEffect(() => {
+    sessionId.current = initialSessionId ?? null
+    setMessages([])
+  }, [initialSessionId])
+
+  // Nạp hội thoại cũ khi mở một phiên có sẵn.
+  const historyQuery = useQuery({
+    queryKey: ['chat', 'messages', initialSessionId],
+    queryFn: () => chatApi.getMessages(initialSessionId as number),
+    enabled: initialSessionId != null,
+  })
+
+  useEffect(() => {
+    if (historyQuery.data) setMessages(historyQuery.data.items)
+  }, [historyQuery.data])
 
   const mutation = useMutation({
     mutationFn: async ({ content, image }: { content: string; image?: File }) => {
@@ -26,6 +44,8 @@ export function useChat() {
     },
     onSuccess: (assistantMessage) => {
       setMessages((prev) => [...prev, assistantMessage])
+      // Lịch sử đổi (phiên mới / thời gian / số tin nhắn) → làm mới danh sách phiên.
+      queryClient.invalidateQueries({ queryKey: ['chat', 'sessions'] })
     },
     onError: (err: ApiError) => {
       setMessages((prev) => [
@@ -56,5 +76,10 @@ export function useChat() {
     mutation.mutate({ content: text, image })
   }
 
-  return { messages, send, isSending: mutation.isPending }
+  return {
+    messages,
+    send,
+    isSending: mutation.isPending,
+    isLoadingHistory: initialSessionId != null && historyQuery.isPending,
+  }
 }

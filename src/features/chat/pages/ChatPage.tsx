@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { SparkleIcon } from '@/components/ui'
+import { useSearchParams } from 'react-router-dom'
+import { SparkleIcon, Spinner } from '@/components/ui'
 import { useChat } from '../hooks/useChat'
 import { MessageBubble } from '../components/MessageBubble'
 import { TypingIndicator } from '../components/TypingIndicator'
@@ -7,7 +8,12 @@ import { ChatInput } from '../components/ChatInput'
 
 /** UC 7 — Khung chat hỏi đáp thông minh (chỉ phần chat, không panel Nguồn/Lịch sử/PDF). */
 export function ChatPage() {
-  const { messages, send, isSending } = useChat()
+  // Mở lại một phiên từ màn Lịch sử: /student?session=<id> (UC 9).
+  const [searchParams] = useSearchParams()
+  const sessionParam = Number(searchParams.get('session'))
+  const initialSessionId = Number.isFinite(sessionParam) && sessionParam > 0 ? sessionParam : undefined
+
+  const { messages, send, isSending, isLoadingHistory } = useChat(initialSessionId)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -24,7 +30,11 @@ export function ChatPage() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
-          {empty ? (
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-slate-500">
+              <Spinner /> Đang tải hội thoại…
+            </div>
+          ) : empty ? (
             <div className="mt-16 flex flex-col items-center text-center text-slate-500">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
                 <SparkleIcon width={28} height={28} />

@@ -71,59 +71,89 @@ export const findAccountByToken = (token: string | null) => {
   return mockAccounts.find((a) => a.user.id === id)
 }
 
+/**
+ * Kho phiên chat DÙNG CHUNG cho cả tạo/gửi (chat.handlers.ts) lẫn lịch sử (UC 9).
+ * Nhờ vậy phiên tạo từ màn Chat sẽ xuất hiện luôn trong màn Lịch sử.
+ */
+let sessionSeq = 100
+let messageSeq = 5000
+export const genSessionId = () => ++sessionSeq
+export const genMessageId = () => ++messageSeq
+
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString()
+const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString()
+
 export const mockChatSessions: ChatSession[] = [
+  { id: 1, title: 'Mạng nơ-ron và hàm kích hoạt', createdAt: hoursAgo(3), updatedAt: hoursAgo(2) },
+  { id: 2, title: 'Thuật toán Gradient Descent', createdAt: daysAgo(1), updatedAt: daysAgo(1) },
+  { id: 3, title: 'Overfitting và Regularization', createdAt: daysAgo(14), updatedAt: daysAgo(14) },
+  { id: 4, title: 'Convolutional Neural Networks', createdAt: daysAgo(16), updatedAt: daysAgo(16) },
+  { id: 5, title: 'Transformer và Attention Mechanism', createdAt: daysAgo(18), updatedAt: daysAgo(18) },
+]
+
+// Câu hỏi đầu của mỗi phiên cũng chính là "đoạn xem trước" hiển thị ở màn Lịch sử.
+const seedPair = (
+  sessionId: number,
+  question: string,
+  answer: string,
+  at: string,
+  withCitation = false,
+): ChatMessage[] => [
+  { id: `s${sessionId}-u`, role: 'user', content: question, createdAt: at },
   {
-    id: 1,
-    title: 'Hỏi về đề cương môn AI',
-    createdAt: '2026-07-10T09:00:00.000Z',
-    updatedAt: '2026-07-10T09:30:00.000Z',
-  },
-  {
-    id: 2,
-    title: 'Tổng hợp tài liệu RAG',
-    createdAt: '2026-07-11T14:00:00.000Z',
-    updatedAt: '2026-07-11T14:20:00.000Z',
+    id: `s${sessionId}-a`,
+    role: 'assistant',
+    content: answer,
+    createdAt: at,
+    ...(withCitation
+      ? {
+          citations: [
+            {
+              id: 1,
+              documentId: 1,
+              documentName: 'AI cơ bản.pdf',
+              page: 3,
+              snippet: 'RAG giúp kết hợp nguồn tri thức ngoại vi với phản hồi người dùng.',
+            },
+          ],
+        }
+      : {}),
   },
 ]
 
+// Key = id phiên dạng chuỗi (khớp param lấy từ URL).
 export const mockChatMessages: Record<string, ChatMessage[]> = {
-  '1': [
-    {
-      id: 'msg-1',
-      role: 'user',
-      content: 'Môn AI cần chuẩn bị những nội dung gì?',
-      createdAt: '2026-07-10T09:29:00.000Z',
-    },
-    {
-      id: 'msg-2',
-      role: 'assistant',
-      content: 'Bạn nên chuẩn bị các khái niệm về ML, mạng nơ-ron và ứng dụng RAG trong giáo dục.',
-      citations: [
-        {
-          id: 1,
-          documentId: 1,
-          documentName: 'AI cơ bản.pdf',
-          page: 3,
-          snippet: 'RAG giúp kết hợp nguồn tri thức ngoại vi với phản hồi người dùng.',
-        },
-      ],
-      createdAt: '2026-07-10T09:30:00.000Z',
-    },
-  ],
-  '2': [
-    {
-      id: 'msg-3',
-      role: 'user',
-      content: 'Cho tôi ví dụ về cách dùng RAG để trả lời câu hỏi học tập.',
-      createdAt: '2026-07-11T14:18:00.000Z',
-    },
-    {
-      id: 'msg-4',
-      role: 'assistant',
-      content: 'Bạn có thể dùng vector search trên tài liệu bài giảng và trả về citation rõ ràng.',
-      createdAt: '2026-07-11T14:20:00.000Z',
-    },
-  ],
+  '1': seedPair(
+    1,
+    'Định nghĩa và phân loại mạng nơ-ron gồm những gì?',
+    'Mạng nơ-ron gồm các lớp input/hidden/output; phân loại phổ biến: MLP, CNN, RNN. Hàm kích hoạt thường dùng: ReLU, Sigmoid, Tanh.',
+    hoursAgo(2),
+    true,
+  ),
+  '2': seedPair(
+    2,
+    'Giải thích chi tiết về thuật toán Gradient Descent.',
+    'Gradient Descent cập nhật tham số ngược hướng đạo hàm của hàm mất mát, với learning rate quyết định bước nhảy.',
+    daysAgo(1),
+  ),
+  '3': seedPair(
+    3,
+    'Cách phát hiện và xử lý overfitting?',
+    'Phát hiện qua chênh lệch train/validation loss. Xử lý bằng regularization (L1/L2), dropout, early stopping, tăng dữ liệu.',
+    daysAgo(14),
+  ),
+  '4': seedPair(
+    4,
+    'Kiến trúc CNN và ứng dụng trong xử lý ảnh?',
+    'CNN dùng lớp convolution + pooling để trích đặc trưng không gian, ứng dụng trong phân loại và nhận dạng ảnh.',
+    daysAgo(16),
+  ),
+  '5': seedPair(
+    5,
+    'Self-attention và multi-head attention khác nhau thế nào?',
+    'Self-attention tính trọng số giữa các token trong cùng chuỗi; multi-head chạy nhiều self-attention song song để học nhiều kiểu quan hệ.',
+    daysAgo(18),
+  ),
 }
 
 export const mockSearchResults: SearchResult[] = [

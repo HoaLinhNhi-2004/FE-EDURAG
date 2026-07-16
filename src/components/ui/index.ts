@@ -17,4 +17,8 @@ export {
   SparkleIcon,
   XIcon,
   PhoneIcon,
+  ChatBubbleIcon,
+  ClockIcon,
+  TrashIcon,
+  SearchIcon,
 } from './icons'

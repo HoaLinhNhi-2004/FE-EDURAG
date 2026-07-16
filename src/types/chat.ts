@@ -27,6 +27,12 @@ export interface ChatSession {
   title: string
   createdAt: string
   updatedAt: string
+  /**
+   * Đoạn xem trước + số tin nhắn để hiển thị ở màn Lịch sử (UC 9).
+   * GIẢ ĐỊNH: OpenAPI để `data` generic nên 2 field này chưa được đặc tả — cần BE xác nhận.
+   */
+  preview?: string
+  messageCount?: number
 }
 
 export interface CreateSessionRequest {
