@@ -145,7 +145,7 @@ export const mockSearchResults: SearchResult[] = [
 
 export const mockDocuments: CourseDocument[] = [
   {
-    id: 'doc-1',
+    id: 1,
     name: 'AI cơ bản.pdf',
     fileType: 'pdf',
     courseId: 'CS101',
@@ -158,7 +158,7 @@ export const mockDocuments: CourseDocument[] = [
     currentVersion: 3,
   },
   {
-    id: 'doc-2',
+    id: 2,
     name: 'Tài liệu RAG.pdf',
     fileType: 'pdf',
     courseId: 'CS102',
@@ -172,13 +172,14 @@ export const mockDocuments: CourseDocument[] = [
   },
 ]
 
+// Key = id tài liệu dạng chuỗi (khớp param lấy từ URL).
 export const mockDocumentVersions: Record<string, DocumentVersion[]> = {
-  'doc-1': [
+  '1': [
     { version: 1, uploadedAt: '2026-06-10T08:00:00.000Z', uploadedBy: 'Nguyễn Văn A' },
     { version: 2, uploadedAt: '2026-06-20T08:00:00.000Z', uploadedBy: 'Nguyễn Văn A' },
     { version: 3, uploadedAt: '2026-07-01T10:00:00.000Z', uploadedBy: 'Nguyễn Văn A' },
   ],
-  'doc-2': [
+  '2': [
     { version: 1, uploadedAt: '2026-07-05T11:10:00.000Z', uploadedBy: 'Trần Thị B' },
   ],
 }
