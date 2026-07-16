@@ -23,7 +23,7 @@ import { PasswordStrength } from '../components/PasswordStrength'
 import { registerSchema, type RegisterFormValues } from '../schemas'
 
 /** UC 1 — Màn Đăng ký sinh viên. Thành công → tự đăng nhập, vào Trang chủ. */
-export function RegisterPage({ onGoLogin }: { onGoLogin?: () => void }) {
+export function RegisterPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
   const [apiError, setApiError] = useState<string | null>(null)
@@ -192,7 +192,11 @@ export function RegisterPage({ onGoLogin }: { onGoLogin?: () => void }) {
 
       <p className="mt-6 text-center text-sm text-slate-600">
         Đã có tài khoản?{' '}
-        <button type="button" onClick={onGoLogin} className="font-medium text-indigo-600 hover:underline">
+        <button
+          type="button"
+          onClick={() => navigate('/login')}
+          className="font-medium text-indigo-600 hover:underline"
+        >
           Đăng nhập
         </button>
       </p>
