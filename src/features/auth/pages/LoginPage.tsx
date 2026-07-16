@@ -20,13 +20,7 @@ import { AdminOtpStep } from '../components/AdminOtpStep'
 import { loginSchema, type LoginFormValues } from '../schemas'
 
 /** UC 3 — Màn Đăng nhập (luồng Client); UC 19 — Admin chuyển sang bước OTP 2FA. */
-export function LoginPage({
-  onGoRegister,
-  onGoForgot,
-}: {
-  onGoRegister?: () => void
-  onGoForgot?: () => void
-}) {
+export function LoginPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
   const [apiError, setApiError] = useState<string | null>(null)
@@ -124,7 +118,7 @@ export function LoginPage({
           </label>
           <button
             type="button"
-            onClick={onGoForgot}
+            onClick={() => navigate('/forgot')}
             className="text-sm font-medium text-indigo-600 hover:underline"
           >
             Quên mật khẩu?
@@ -141,7 +135,7 @@ export function LoginPage({
         Chưa có tài khoản?{' '}
         <button
           type="button"
-          onClick={onGoRegister}
+          onClick={() => navigate('/register')}
           className="font-medium text-indigo-600 hover:underline"
         >
           Đăng ký ngay

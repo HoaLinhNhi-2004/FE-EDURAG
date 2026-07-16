@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, ArrowRightIcon, Button, FormField, Input, LockIcon } from '@/components/ui'
 import type { ApiError } from '@/types'
 import { authApi } from '@/api/auth.api'
@@ -20,16 +20,12 @@ import {
  * UC 2 (bước 2–3) — Đặt lại mật khẩu 2 bước: xác thực OTP → đặt mật khẩu mới.
  * `email` được mang từ màn Quên mật khẩu.
  */
-export function ResetPasswordPage({
-  email: emailProp,
-  onGoLogin,
-}: {
-  /** Ưu tiên prop (App tạm); router của Long truyền qua query param ?email=. */
-  email?: string
-  onGoLogin?: () => void
-}) {
+export function ResetPasswordPage() {
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const email = emailProp ?? searchParams.get('email') ?? ''
+  // Email do màn Quên mật khẩu truyền qua query param: /reset?email=...
+  const email = searchParams.get('email') ?? ''
+  const onGoLogin = () => navigate('/login')
   const [step, setStep] = useState<'otp' | 'password'>('otp')
   const [resetToken, setResetToken] = useState('')
   const [done, setDone] = useState(false)
