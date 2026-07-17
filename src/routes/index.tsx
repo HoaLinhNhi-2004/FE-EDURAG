@@ -26,6 +26,7 @@ const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPassword
 const ChatPage = lazy(() => import('@/features/chat/pages/ChatPage').then((m) => ({ default: m.ChatPage })))
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const HistoryPage = lazy(() => import('@/features/chat/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
+const DocumentsPage = lazy(() => import('@/features/documents/pages/DocumentsPage').then((m) => ({ default: m.DocumentsPage })))
 
 // Placeholder cho khu vực Giảng viên/Admin (LN Long)
 function DashboardHome() {
@@ -143,6 +144,20 @@ export const router = createBrowserRouter([
       <ProtectedRoute allowedRoles={['TEACHER', 'ADMIN'] as Role[]}>
         <DashboardLayout>
           <DashboardHome />
+        </DashboardLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  // Tải lên & quản lý học liệu (UC 13–18)
+  {
+    path: '/dashboard/documents',
+    element: (
+      <ProtectedRoute allowedRoles={['TEACHER'] as Role[]}>
+        <DashboardLayout>
+          <Suspense fallback={<div className="p-8 text-slate-400">Đang tải…</div>}>
+            <DocumentsPage />
+          </Suspense>
         </DashboardLayout>
       </ProtectedRoute>
     ),
