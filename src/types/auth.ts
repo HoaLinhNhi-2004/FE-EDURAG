@@ -17,6 +17,12 @@ export interface User {
   academicTitle?: string | null
   degree?: string | null
   department?: string | null
+  /** Các môn học (mã môn) mà TEACHER được phân công phụ trách. */
+  assignedCourses?: string[]
+  /** Ngày tham gia hệ thống (ISO 8601 string) */
+  joinDate?: string
+  /** Số lượng tài liệu đã upload */
+  documentCount?: number
 }
 
 export interface LoginRequest {
