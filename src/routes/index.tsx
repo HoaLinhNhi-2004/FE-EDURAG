@@ -98,7 +98,7 @@ export const router = createBrowserRouter([
   {
     path: '/student',
     element: (
-      <ProtectedRoute allowedRoles={["STUDENT"] as Role[]}>
+      <ProtectedRoute allowedRoles={['STUDENT'] as Role[]}>
         <ClientLayout>
           <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
             <ChatPage />
@@ -112,7 +112,7 @@ export const router = createBrowserRouter([
   {
     path: '/student/history',
     element: (
-      <ProtectedRoute allowedRoles={["STUDENT"] as Role[]}>
+      <ProtectedRoute allowedRoles={['STUDENT'] as Role[]}>
         <ClientLayout>
           <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
             <HistoryPage />
@@ -126,7 +126,7 @@ export const router = createBrowserRouter([
   {
     path: '/student/profile',
     element: (
-      <ProtectedRoute allowedRoles={["STUDENT"] as Role[]}>
+      <ProtectedRoute allowedRoles={['STUDENT'] as Role[]}>
         <ClientLayout>
           <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
             <ProfilePage />
@@ -140,7 +140,7 @@ export const router = createBrowserRouter([
   {
     path: '/dashboard',
     element: (
-      <ProtectedRoute allowedRoles={["TEACHER", "ADMIN"] as Role[]}>
+      <ProtectedRoute allowedRoles={['TEACHER', 'ADMIN'] as Role[]}>
         <DashboardLayout>
           <DashboardHome />
         </DashboardLayout>
@@ -148,4 +148,3 @@ export const router = createBrowserRouter([
     ),
   },
 ])
-

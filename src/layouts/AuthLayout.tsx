@@ -1,5 +1,5 @@
 /*
-  AuthLayout
+AuthLayout
   - Purpose: Layout dùng cho các trang xác thực (login/register/forgot/reset).
   - Behavior: căn giữa form, giới hạn chiều rộng (`max-w-md`) để form nhìn gọn.
   - Usage: Wrap form pages: <AuthLayout><LoginPage/></AuthLayout>
