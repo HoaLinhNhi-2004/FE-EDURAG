@@ -1,6 +1,5 @@
 /*
   DashboardLayout
-<<<<<<< HEAD
   - Purpose: Layout cho Giảng viên (TEACHER) và Quản trị viên (ADMIN).
   - Structure:
       • Sidebar trái (w-52): Logo + role badge, nav groups theo role,
