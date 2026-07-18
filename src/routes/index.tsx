@@ -28,6 +28,7 @@ const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage').th
 const HistoryPage = lazy(() => import('@/features/chat/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
 const DocumentsPage = lazy(() => import('@/features/documents/pages/DocumentsPage').then((m) => ({ default: m.DocumentsPage })))
 const TeacherManagementPage = lazy(() => import('@/features/admin/pages/TeacherManagementPage').then((m) => ({ default: m.TeacherManagementPage })))
+const StudentManagementPage = lazy(() => import('@/features/admin/pages/StudentManagementPage').then((m) => ({ default: m.StudentManagementPage })))
 
 // Placeholder cho khu vực Giảng viên/Admin (LN Long)
 function DashboardHome() {
@@ -172,6 +173,20 @@ export const router = createBrowserRouter([
         <DashboardLayout>
           <Suspense fallback={<div className="p-8 text-slate-400">Đang tải…</div>}>
             <TeacherManagementPage />
+          </Suspense>
+        </DashboardLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  // Quản lý sinh viên (ADMIN)
+  {
+    path: '/dashboard/students',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN'] as Role[]}>
+        <DashboardLayout>
+          <Suspense fallback={<div className="p-8 text-slate-400">Đang tải…</div>}>
+            <StudentManagementPage />
           </Suspense>
         </DashboardLayout>
       </ProtectedRoute>

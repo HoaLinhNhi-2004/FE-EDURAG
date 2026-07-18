@@ -30,6 +30,7 @@ import {
   mockDocuments,
   mockPipelineSummary,
   mockSearchResults,
+  mockStudents,
   tokenFor,
 } from './data'
 import { chatHandlers } from './chat.handlers'
@@ -346,4 +347,42 @@ export const teacherAdminHandlers = [
   }),
 ]
 
-export const handlers = [...authHandlers, ...chatHandlers, ...teacherAdminHandlers]
+export const studentAdminHandlers = [
+  // GET /api/admin/students — danh sách sinh viên
+  http.get(`${API}/admin/students`, async ({ request }) => {
+    await delay(300)
+    const account = findAccountByToken(bearer(request))
+    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    return ok({ items: mockStudents, total: mockStudents.length, offset: 0, limit: mockStudents.length })
+  }),
+
+  // PATCH /api/admin/students/:id/status — Khóa / Mở khóa
+  http.patch(`${API}/admin/students/:id/status`, async ({ request, params }) => {
+    await delay(400)
+    const account = findAccountByToken(bearer(request))
+    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    const id = Number(params.id)
+    const { status } = (await request.json()) as { status: 'ACTIVE' | 'LOCKED' }
+    const target = mockStudents.find((s) => s.id === id)
+    if (!target) return fail(404, 'NOT_FOUND', 'Không tìm thấy sinh viên.')
+    target.status = status
+    if (status === 'LOCKED') target.authVersion += 1
+    return ok(target)
+  }),
+
+  // POST /api/admin/students/:id/reset-password — Đặt lại mật khẩu về mặc định
+  http.post(`${API}/admin/students/:id/reset-password`, async ({ request, params }) => {
+    await delay(400)
+    const account = findAccountByToken(bearer(request))
+    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    const id = Number(params.id)
+    const target = mockStudents.find((s) => s.id === id)
+    if (!target) return fail(404, 'NOT_FOUND', 'Không tìm thấy sinh viên.')
+    // Reset password in mock accounts if exists
+    const acc = mockAccounts.find((a) => a.user.id === id)
+    if (acc) acc.password = '12345678'
+    return ok({ message: 'Mật khẩu đã được đặt lại về mặc định.' })
+  }),
+]
+
+export const handlers = [...authHandlers, ...chatHandlers, ...teacherAdminHandlers, ...studentAdminHandlers]
