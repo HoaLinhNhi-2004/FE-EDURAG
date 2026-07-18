@@ -84,7 +84,7 @@ export const authHandlers = [
     if (account.user.role === 'ADMIN') {
       return ok({ requireOtp: true })
     }
-    return ok<LoginResponse>({ token: tokenFor(account.user.id), user: account.user })
+    return ok<LoginResponse>({ token: tokenFor(account.user.id, account.user.authVersion), user: account.user })
   }),
 
   // POST /api/auth/admin/verify-otp — 2FA Admin.
@@ -95,7 +95,7 @@ export const authHandlers = [
     if (!account || account.user.role !== 'ADMIN' || otpCode !== MOCK_OTP) {
       return fail(400, 'OTP_INVALID', 'Mã OTP không đúng hoặc đã hết hạn.')
     }
-    return ok<LoginResponse>({ token: tokenFor(account.user.id), user: account.user })
+    return ok<LoginResponse>({ token: tokenFor(account.user.id, account.user.authVersion), user: account.user })
   }),
 
   http.post(`${API}/auth/logout`, async () => ok(null)),
@@ -295,4 +295,55 @@ export const authHandlers = [
   }),
 ]
 
-export const handlers = [...authHandlers, ...chatHandlers]
+export const teacherAdminHandlers = [
+  // Lấy danh sách giảng viên
+  http.get(`${API}/admin/teachers`, async ({ request }) => {
+    await delay(300)
+    const account = findAccountByToken(bearer(request))
+    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    
+    const teachers = mockAccounts.map(a => a.user).filter(u => u.role === 'TEACHER')
+    const teachersWithDocCount = teachers.map(t => ({
+      ...t,
+      documentCount: mockDocuments.filter(d => String(d.uploadedBy) === String(t.id)).length
+    }))
+    return ok({ items: teachersWithDocCount, total: teachersWithDocCount.length, offset: 0, limit: teachersWithDocCount.length })
+  }),
+
+  // Cập nhật trạng thái giảng viên (Duyệt/Từ chối/Khóa/Mở khóa)
+  http.patch(`${API}/admin/teachers/:id/status`, async ({ request, params }) => {
+    await delay(400)
+    const account = findAccountByToken(bearer(request))
+    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    
+    const id = Number(params.id)
+    const { status } = (await request.json()) as { status: 'ACTIVE' | 'LOCKED' | 'REJECTED' }
+    const target = mockAccounts.find(a => a.user.id === id)
+    if (!target) return fail(404, 'NOT_FOUND', 'Không tìm thấy giảng viên.')
+
+    target.user.status = status
+    // Khóa -> tăng authVersion để invalid session cũ ngay lập tức
+    if (status === 'LOCKED') {
+      target.user.authVersion += 1
+    }
+
+    return ok(target.user)
+  }),
+
+  // Gán môn phụ trách
+  http.patch(`${API}/admin/teachers/:id/courses`, async ({ request, params }) => {
+    await delay(400)
+    const account = findAccountByToken(bearer(request))
+    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    
+    const id = Number(params.id)
+    const { assignedCourses } = (await request.json()) as { assignedCourses: string[] }
+    const target = mockAccounts.find(a => a.user.id === id)
+    if (!target) return fail(404, 'NOT_FOUND', 'Không tìm thấy giảng viên.')
+
+    target.user.assignedCourses = assignedCourses
+    return ok(target.user)
+  }),
+]
+
+export const handlers = [...authHandlers, ...chatHandlers, ...teacherAdminHandlers]

@@ -37,6 +37,7 @@ export const mockAccounts: MockAccount[] = [
       academicTitle: 'Giảng viên',
       degree: 'Thạc sĩ',
       department: 'Công nghệ thông tin',
+      joinDate: '2023-09-05T08:30:00Z',
     },
   },
   {
@@ -50,6 +51,33 @@ export const mockAccounts: MockAccount[] = [
       authVersion: 1,
     },
   },
+  {
+    password: '12345678',
+    user: {
+      id: 4,
+      fullName: 'Lê Văn D',
+      email: 'gv.pending@school.edu.vn',
+      role: 'TEACHER',
+      status: 'PENDING',
+      authVersion: 1,
+      academicTitle: 'Thạc sĩ',
+      department: 'Toán học',
+      joinDate: '2024-03-12T14:15:00Z',
+    },
+  },
+  {
+    password: '12345678',
+    user: {
+      id: 5,
+      fullName: 'Lê Văn E',
+      email: 'gv.locked@school.edu.vn',
+      role: 'TEACHER',
+      status: 'LOCKED',
+      authVersion: 1,
+      department: 'Vật lý',
+      joinDate: '2022-11-20T09:00:00Z',
+    },
+  },
 ]
 
 // OTP cố định cho 2FA Admin (UC 19) và token reset cố định cho luồng đặt lại mật khẩu (UC 2).
@@ -60,15 +88,21 @@ let nextId = 100
 
 export const genId = () => nextId++
 
-export const tokenFor = (userId: number) => `mock.access.${userId}`
+// Token bao gồm userId và authVersion để có thể vô hiệu hóa tức thời (khi admin khóa user)
+export const tokenFor = (userId: number, authVersion: number) => `mock.access.${userId}.${authVersion}`
 
 export const findAccountByEmail = (email: string) =>
   mockAccounts.find((a) => a.user.email.toLowerCase() === email.toLowerCase())
 
 export const findAccountByToken = (token: string | null) => {
   if (!token?.startsWith('mock.access.')) return undefined
-  const id = Number(token.replace('mock.access.', ''))
-  return mockAccounts.find((a) => a.user.id === id)
+  const parts = token.replace('mock.access.', '').split('.')
+  const id = Number(parts[0])
+  const version = Number(parts[1])
+  const account = mockAccounts.find((a) => a.user.id === id)
+  if (!account || account.user.authVersion !== version) return undefined
+  if (account.user.status !== 'ACTIVE') return undefined // Nếu bị khóa thì token cũng mất hiệu lực
+  return account
 }
 
 /**
