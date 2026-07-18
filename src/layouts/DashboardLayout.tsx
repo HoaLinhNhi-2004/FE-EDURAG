@@ -143,7 +143,7 @@ function Sidebar({ pathname }: { pathname: string }) {
   }
 
   return (
-    <aside className="hidden md:flex flex-col w-52 shrink-0 min-h-screen bg-white border-r border-slate-200">
+    <aside className="hidden md:flex flex-col w-52 shrink-0 h-screen sticky top-0 bg-white border-r border-slate-200">
 
       {/* ── Logo + role badge ── */}
       <div className="px-4 pt-5 pb-4 select-none">
@@ -265,9 +265,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { pathname } = useLocation()
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar pathname={pathname} />
-      <main className="flex-1 min-w-0 overflow-auto">
+      <main className="flex-1 min-w-0 overflow-y-auto">
         {children}
       </main>
     </div>
