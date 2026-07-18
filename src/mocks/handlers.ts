@@ -207,6 +207,69 @@ export const authHandlers = [
     return ok<Paginated<CourseDocument>>({ items: mockDocuments, total: mockDocuments.length, offset: 0, limit: mockDocuments.length })
   }),
 
+  // POST /api/documents — upload tài liệu mới (multipart/form-data)
+  http.post(`${API}/documents`, async ({ request }) => {
+    await delay(800)
+    const account = findAccountByToken(bearer(request))
+    if (!account) return fail(401, 'UNAUTHORIZED', 'Phiên đăng nhập không hợp lệ.')
+    const formData = await request.formData()
+    const file = formData.get('file') as File | null
+    if (!file) return fail(400, 'MISSING_FILE', 'Chưa chọn file.')
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+    const allowedExt = ['pdf', 'docx', 'pptx']
+    if (!allowedExt.includes(ext)) return fail(400, 'INVALID_TYPE', 'Chỉ chấp nhận PDF, DOCX, PPTX.')
+    if (file.size > 50 * 1024 * 1024) return fail(400, 'FILE_TOO_LARGE', 'File vượt quá 50 MB.')
+    const courseId = (formData.get('courseId') as string) ?? 'UNKNOWN'
+    const publishYearRaw = formData.get('publishYear') as string | null
+    const newDoc: CourseDocument = {
+      id: genId(),
+      name: file.name,
+      fileType: ext as CourseDocument['fileType'],
+      courseId,
+      courseName: mockDocuments.find((d) => d.courseId === courseId)?.courseName ?? courseId,
+      sizeBytes: file.size,
+      status: 'queued',
+      hidden: false,
+      uploadedBy: account.user.fullName,
+      uploadedAt: new Date().toISOString(),
+      currentVersion: 1,
+      title: (formData.get('title') as string) || undefined,
+      author: (formData.get('author') as string) || undefined,
+      docType: (formData.get('docType') as string) || undefined,
+      publishYear: publishYearRaw ? Number(publishYearRaw) : undefined,
+      abstract: (formData.get('abstract') as string) || undefined,
+    }
+    mockDocuments.push(newDoc)
+    return ok<CourseDocument>(newDoc, 201)
+  }),
+
+  // PATCH /api/documents/:id/visibility — ẩn/hiện tài liệu
+  http.patch(new RegExp(`${API}/documents/(.+)/visibility`), async ({ request }) => {
+    await delay(200)
+    const account = findAccountByToken(bearer(request))
+    if (!account) return fail(401, 'UNAUTHORIZED', 'Phiên đăng nhập không hợp lệ.')
+    const match = request.url.match(/\/documents\/(.+)\/visibility$/)
+    const docId = Number(match?.[1])
+    const doc = mockDocuments.find((d) => d.id === docId)
+    if (!doc) return fail(404, 'DOCUMENT_NOT_FOUND', 'Tài liệu không tồn tại.')
+    const body = await request.json() as { hidden: boolean }
+    doc.hidden = body.hidden
+    return ok<CourseDocument>(doc)
+  }),
+
+  // DELETE /api/documents/:id — xoá tài liệu
+  http.delete(new RegExp(`${API}/documents/([^/]+)$`), async ({ request }) => {
+    await delay(300)
+    const account = findAccountByToken(bearer(request))
+    if (!account) return fail(401, 'UNAUTHORIZED', 'Phiên đăng nhập không hợp lệ.')
+    const match = request.url.match(/\/documents\/([^/]+)$/)
+    const docId = Number(match?.[1])
+    const idx = mockDocuments.findIndex((d) => d.id === docId)
+    if (idx === -1) return fail(404, 'DOCUMENT_NOT_FOUND', 'Tài liệu không tồn tại.')
+    mockDocuments.splice(idx, 1)
+    return ok(null)
+  }),
+
   // GET /api/documents/:id/versions — lịch sử version
   http.get(new RegExp(`${API}/documents/(.+)/versions`), async ({ request }) => {
     await delay(200)
