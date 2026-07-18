@@ -78,6 +78,69 @@ export const mockAccounts: MockAccount[] = [
       joinDate: '2022-11-20T09:00:00Z',
     },
   },
+  {
+    password: '12345678',
+    user: {
+      id: 6,
+      fullName: 'Nguyễn Thị Phượng',
+      email: 'gv.phuong@school.edu.vn',
+      role: 'TEACHER',
+      status: 'ACTIVE',
+      authVersion: 1,
+      academicTitle: 'Phó Giáo sư',
+      degree: 'Tiến sĩ',
+      department: 'Khoa học Máy tính',
+      joinDate: '2021-08-15T07:00:00Z',
+      assignedCourses: ['CS101', 'ML101'],
+    },
+  },
+  {
+    password: '12345678',
+    user: {
+      id: 7,
+      fullName: 'Trần Quốc Hùng',
+      email: 'gv.hung@school.edu.vn',
+      role: 'TEACHER',
+      status: 'ACTIVE',
+      authVersion: 1,
+      academicTitle: 'Giảng viên chính',
+      degree: 'Thạc sĩ',
+      department: 'Kỹ thuật phần mềm',
+      joinDate: '2022-02-10T08:00:00Z',
+      assignedCourses: ['DL201'],
+    },
+  },
+  {
+    password: '12345678',
+    user: {
+      id: 8,
+      fullName: 'Phạm Minh Tuấn',
+      email: 'gv.tuan@school.edu.vn',
+      role: 'TEACHER',
+      status: 'PENDING',
+      authVersion: 1,
+      academicTitle: 'Thạc sĩ',
+      degree: 'Thạc sĩ',
+      department: 'Hệ thống thông tin',
+      joinDate: '2025-01-20T09:00:00Z',
+    },
+  },
+  {
+    password: '12345678',
+    user: {
+      id: 9,
+      fullName: 'Võ Thị Lan',
+      email: 'gv.lan@school.edu.vn',
+      role: 'TEACHER',
+      status: 'ACTIVE',
+      authVersion: 1,
+      academicTitle: 'Giảng viên',
+      degree: 'Tiến sĩ',
+      department: 'Trí tuệ nhân tạo',
+      joinDate: '2023-03-01T08:00:00Z',
+      assignedCourses: ['NLP301', 'CS102'],
+    },
+  },
 ]
 
 // OTP cố định cho 2FA Admin (UC 19) và token reset cố định cho luồng đặt lại mật khẩu (UC 2).
@@ -104,6 +167,22 @@ export const findAccountByToken = (token: string | null) => {
   if (account.user.status !== 'ACTIVE') return undefined // Nếu bị khóa thì token cũng mất hiệu lực
   return account
 }
+
+/**
+ * Phiên bản relaxed của findAccountByToken dành riêng cho admin routes.
+ * Không validate authVersion — tránh lỗi 403 sau HMR reload khi MSW reset
+ * in-memory authVersion về 1 nhưng token trong browser mang version cũ.
+ */
+export const findAdminByToken = (token: string | null) => {
+  if (!token?.startsWith('mock.access.')) return undefined
+  const parts = token.replace('mock.access.', '').split('.')
+  const id = Number(parts[0])
+  const account = mockAccounts.find((a) => a.user.id === id)
+  if (!account || account.user.role !== 'ADMIN') return undefined
+  if (account.user.status !== 'ACTIVE') return undefined
+  return account
+}
+
 
 /**
  * Kho phiên chat DÙNG CHUNG cho cả tạo/gửi (chat.handlers.ts) lẫn lịch sử (UC 9).

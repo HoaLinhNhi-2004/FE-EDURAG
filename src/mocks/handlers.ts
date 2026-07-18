@@ -21,6 +21,7 @@ import {
   MOCK_RESET_TOKEN,
   findAccountByEmail,
   findAccountByToken,
+  findAdminByToken,
   genId,
   mockAccounts,
   mockAdminUsers,
@@ -300,8 +301,8 @@ export const teacherAdminHandlers = [
   // Lấy danh sách giảng viên
   http.get(`${API}/admin/teachers`, async ({ request }) => {
     await delay(300)
-    const account = findAccountByToken(bearer(request))
-    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    const account = findAdminByToken(bearer(request))
+    if (!account) return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
     
     const teachers = mockAccounts.map(a => a.user).filter(u => u.role === 'TEACHER')
     const teachersWithDocCount = teachers.map(t => ({
@@ -314,8 +315,8 @@ export const teacherAdminHandlers = [
   // Cập nhật trạng thái giảng viên (Duyệt/Từ chối/Khóa/Mở khóa)
   http.patch(`${API}/admin/teachers/:id/status`, async ({ request, params }) => {
     await delay(400)
-    const account = findAccountByToken(bearer(request))
-    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    const account = findAdminByToken(bearer(request))
+    if (!account) return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
     
     const id = Number(params.id)
     const { status } = (await request.json()) as { status: 'ACTIVE' | 'LOCKED' | 'REJECTED' }
@@ -334,8 +335,8 @@ export const teacherAdminHandlers = [
   // Gán môn phụ trách
   http.patch(`${API}/admin/teachers/:id/courses`, async ({ request, params }) => {
     await delay(400)
-    const account = findAccountByToken(bearer(request))
-    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    const account = findAdminByToken(bearer(request))
+    if (!account) return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
     
     const id = Number(params.id)
     const { assignedCourses } = (await request.json()) as { assignedCourses: string[] }
@@ -351,16 +352,16 @@ export const studentAdminHandlers = [
   // GET /api/admin/students — danh sách sinh viên
   http.get(`${API}/admin/students`, async ({ request }) => {
     await delay(300)
-    const account = findAccountByToken(bearer(request))
-    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    const account = findAdminByToken(bearer(request))
+    if (!account) return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
     return ok({ items: mockStudents, total: mockStudents.length, offset: 0, limit: mockStudents.length })
   }),
 
   // PATCH /api/admin/students/:id/status — Khóa / Mở khóa
   http.patch(`${API}/admin/students/:id/status`, async ({ request, params }) => {
     await delay(400)
-    const account = findAccountByToken(bearer(request))
-    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    const account = findAdminByToken(bearer(request))
+    if (!account) return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
     const id = Number(params.id)
     const { status } = (await request.json()) as { status: 'ACTIVE' | 'LOCKED' }
     const target = mockStudents.find((s) => s.id === id)
@@ -373,8 +374,8 @@ export const studentAdminHandlers = [
   // POST /api/admin/students/:id/reset-password — Đặt lại mật khẩu về mặc định
   http.post(`${API}/admin/students/:id/reset-password`, async ({ request, params }) => {
     await delay(400)
-    const account = findAccountByToken(bearer(request))
-    if (!account || account.user.role !== 'ADMIN') return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+    const account = findAdminByToken(bearer(request))
+    if (!account) return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
     const id = Number(params.id)
     const target = mockStudents.find((s) => s.id === id)
     if (!target) return fail(404, 'NOT_FOUND', 'Không tìm thấy sinh viên.')
