@@ -1,6 +1,15 @@
 import { http, HttpResponse, delay } from 'msw'
 import type { ChatMessage, ChatSession, SendMessageRequest } from '@/types'
 import { genMessageId, genSessionId, mockChatMessages, mockChatSessions } from './data'
+import { MOCK_PDF_BASE64 } from './mockPdf'
+
+// Đoạn trích trùng với nội dung trang 3 của PDF mock → highlight best-effort test được.
+const PAGE3_TEXT = 'Mạng nơ-ron gồm ba lớp: input, hidden và output.'
+const MOCK_DOC_TITLE = 'Bài giảng AI cơ bản.pdf'
+// id dành riêng để test file gốc không khả dụng (409).
+const UNAVAILABLE_CITATION_ID = 9999
+
+const pdfBytes = () => Uint8Array.from(atob(MOCK_PDF_BASE64), (c) => c.charCodeAt(0))
 
 const API = import.meta.env.VITE_API_BASE_URL
 
@@ -117,10 +126,10 @@ export const chatHandlers = [
         citations: [
           {
             id: 3,
-            documentId: 10,
-            documentName: 'Slide.pdf',
-            page: 6,
-            snippet: 'Nội dung khớp với hình ảnh bạn tải lên.',
+            documentId: 1,
+            documentTitle: MOCK_DOC_TITLE,
+            pageNumber: 3,
+            sourceText: PAGE3_TEXT,
           },
         ],
         createdAt: now,
@@ -153,20 +162,56 @@ export const chatHandlers = [
       citations: [
         {
           id: 1,
-          documentId: 10,
-          documentName: 'Slide.pdf',
-          page: 6,
-          snippet: '5 thành phần cốt lõi: GUI, Core, Wiretap Library, Dissectors, Capture Engine.',
+          documentId: 1,
+          documentTitle: MOCK_DOC_TITLE,
+          pageNumber: 3,
+          sourceText: PAGE3_TEXT,
         },
         {
           id: 2,
-          documentId: 10,
-          documentName: 'Slide.pdf',
-          page: 7,
-          snippet: 'Kiến trúc hệ thống và luồng xử lý gói tin.',
+          documentId: 1,
+          documentTitle: MOCK_DOC_TITLE,
+          pageNumber: 2,
+          sourceText: 'Bài giảng AI cơ bản',
         },
       ],
       createdAt: now,
+    })
+  }),
+
+  // GET /api/citations/{id} — chi tiết trích dẫn (để lấy originalAvailable trước khi mở file).
+  http.get(`${API}/citations/:id`, async ({ params }) => {
+    await delay(150)
+    const id = Number(params.id)
+    return ok({
+      id,
+      messageId: null,
+      documentId: 1,
+      chunkId: null,
+      citationOrder: 1,
+      documentTitle: MOCK_DOC_TITLE,
+      pageNumber: id === 2 ? 2 : 3,
+      sectionTitle: null,
+      sourceText: id === 2 ? 'Bài giảng AI cơ bản' : PAGE3_TEXT,
+      sourceLocator: null,
+      retrievalScore: null,
+      rerankScore: null,
+      originalAvailable: id !== UNAVAILABLE_CITATION_ID,
+    })
+  }),
+
+  // GET /api/citations/{id}/file — stream file gốc (binary). 409 nếu file không khả dụng.
+  http.get(`${API}/citations/:id/file`, async ({ params }) => {
+    await delay(200)
+    if (Number(params.id) === UNAVAILABLE_CITATION_ID) {
+      return HttpResponse.json(
+        { success: false, message: 'File gốc hiện không mở được.', errorCode: 'ORIGINAL_SOURCE_UNAVAILABLE' },
+        { status: 409 },
+      )
+    }
+    return new HttpResponse(pdfBytes(), {
+      status: 200,
+      headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment' },
     })
   }),
 ]

@@ -111,9 +111,9 @@ const seedPair = (
             {
               id: 1,
               documentId: 1,
-              documentName: 'AI cơ bản.pdf',
-              page: 3,
-              snippet: 'RAG giúp kết hợp nguồn tri thức ngoại vi với phản hồi người dùng.',
+              documentTitle: 'Bài giảng AI cơ bản.pdf',
+              pageNumber: 3,
+              sourceText: 'Mạng nơ-ron gồm ba lớp: input, hidden và output.',
             },
           ],
         }
