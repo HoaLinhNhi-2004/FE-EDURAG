@@ -1,10 +1,16 @@
 import { SparkleIcon } from '@/components/ui'
 import { cn } from '@/utils/cn'
-import type { ChatMessage } from '@/types'
+import type { ChatMessage, Citation } from '@/types'
 import { CitationChip } from './CitationChip'
 
 /** Bong bóng tin nhắn: người dùng (phải, nền tím) / trợ lý (trái, kèm trích dẫn). */
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export function MessageBubble({
+  message,
+  onSelectCitation,
+}: {
+  message: ChatMessage
+  onSelectCitation: (citation: Citation) => void
+}) {
   const isUser = message.role === 'user'
 
   if (isUser) {
@@ -40,7 +46,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
         {message.citations && message.citations.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {message.citations.map((c) => (
-              <CitationChip key={c.id} citation={c} />
+              <CitationChip key={c.id} citation={c} onSelect={onSelectCitation} />
             ))}
           </div>
         )}

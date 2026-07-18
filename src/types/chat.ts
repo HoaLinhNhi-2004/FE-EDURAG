@@ -3,13 +3,25 @@
  * chat (message + citations) là GIẢ ĐỊNH, cần đối chiếu BE khi integration.
  */
 
-/** Thẻ trích dẫn nguồn kèm câu trả lời (UC 7). boundingBox bổ sung khi làm PDF Viewer (UC 10). */
+/**
+ * Thẻ trích dẫn nguồn kèm câu trả lời (UC 7, UC 10) — khớp contract BE.
+ * Citation trong chat/history KHÔNG có `originalAvailable`; khi click phải gọi
+ * GET /citations/{id} để lấy field này rồi mới mở file gốc.
+ * `sourceLocator` (toạ độ highlight) BE CHƯA định nghĩa → highlight best-effort qua
+ * `pageNumber` + `sourceText` trong text-layer PDF.js.
+ */
 export interface Citation {
   id: number
   documentId: number
-  documentName: string
-  page: number
-  snippet: string
+  documentTitle: string
+  pageNumber: number | null
+  sourceText: string
+  citationOrder?: number
+  sectionTitle?: string | null
+  messageId?: number
+  chunkId?: number
+  sourceLocator?: unknown | null
+  originalAvailable?: boolean
 }
 
 export interface ChatMessage {

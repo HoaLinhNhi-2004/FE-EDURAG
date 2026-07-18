@@ -1,12 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { SparkleIcon, Spinner } from '@/components/ui'
+import type { Citation } from '@/types'
 import { useChat } from '../hooks/useChat'
 import { MessageBubble } from '../components/MessageBubble'
 import { TypingIndicator } from '../components/TypingIndicator'
 import { ChatInput } from '../components/ChatInput'
+import { PdfViewerPanel } from '../components/PdfViewerPanel'
 
-/** UC 7 — Khung chat hỏi đáp thông minh (chỉ phần chat, không panel Nguồn/Lịch sử/PDF). */
+/** UC 7 — Khung chat hỏi đáp; UC 10 — click trích dẫn mở PDF ở panel bên phải. */
 export function ChatPage() {
   // Mở lại một phiên từ màn Lịch sử: /student?session=<id> (UC 9).
   const [searchParams] = useSearchParams()
@@ -15,6 +17,7 @@ export function ChatPage() {
 
   const { messages, send, isSending, isLoadingHistory } = useChat(initialSessionId)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const [activeCitation, setActiveCitation] = useState<Citation | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -23,7 +26,8 @@ export function ChatPage() {
   const empty = messages.length === 0
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1">
+      <section className="flex min-h-0 flex-1 flex-col">
       <header className="border-b border-slate-200 px-6 py-3">
         <h1 className="font-semibold text-slate-800">Cuộc trò chuyện</h1>
       </header>
@@ -45,7 +49,9 @@ export function ChatPage() {
               </p>
             </div>
           ) : (
-            messages.map((m) => <MessageBubble key={m.id} message={m} />)
+            messages.map((m) => (
+              <MessageBubble key={m.id} message={m} onSelectCitation={setActiveCitation} />
+            ))
           )}
           {isSending && <TypingIndicator />}
           <div ref={bottomRef} />
@@ -60,6 +66,11 @@ export function ChatPage() {
           </p>
         </div>
       </div>
-    </section>
+      </section>
+
+      {activeCitation && (
+        <PdfViewerPanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
+      )}
+    </div>
   )
 }
