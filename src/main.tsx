@@ -6,6 +6,7 @@ import './index.css'
 import { router } from '@/routes'
 import { queryClient } from '@/api/queryClient'
 import { AuthProvider } from '@/store/auth'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 // Bật MSW khi VITE_ENABLE_MOCK=true để chạy FE độc lập, không cần BE (task 3.3).
 async function enableMocking() {
@@ -17,11 +18,13 @@ async function enableMocking() {
 enableMocking().then(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <RouterProvider router={router} />
-        </AuthProvider>
-      </QueryClientProvider>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
     </StrictMode>,
   )
 })
