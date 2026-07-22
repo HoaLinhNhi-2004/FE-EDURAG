@@ -3,9 +3,9 @@ import type { ChatSession } from '@/types'
 import { formatSessionTime } from '@/utils/datetime'
 
 /**
- * Một phiên trong danh sách Lịch sử (UC 9): tiêu đề, đoạn xem trước, thời gian, số tin nhắn.
- * Click card → mở lại phiên để chat tiếp. Nút xóa hiện khi hover (thiết kế không có nút xóa
- * cố định trên card, nên để hover cho khỏi phá bố cục).
+ * Một phiên trong danh sách Lịch sử (UC 9): tiêu đề + thời điểm tin nhắn cuối.
+ * BE không trả `preview`/`messageCount` (chốt B7) nên chỉ hiển thị `lastMessageAt`.
+ * Click card → mở lại phiên để chat tiếp. Nút xóa hiện khi hover.
  */
 export function SessionCard({
   session,
@@ -22,15 +22,11 @@ export function SessionCard({
         <ChatBubbleIcon width={18} height={18} className="mt-0.5 shrink-0 text-indigo-500" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-slate-800">{session.title}</p>
-          {session.preview && (
-            <p className="mt-0.5 truncate text-sm text-slate-500">{session.preview}</p>
-          )}
           <div className="mt-2 flex items-center gap-4 text-xs text-slate-400">
             <span className="flex items-center gap-1">
               <ClockIcon width={13} height={13} />
-              {formatSessionTime(session.updatedAt)}
+              {formatSessionTime(session.lastMessageAt ?? session.updatedAt)}
             </span>
-            <span>{session.messageCount ?? 0} tin nhắn</span>
           </div>
         </div>
       </button>

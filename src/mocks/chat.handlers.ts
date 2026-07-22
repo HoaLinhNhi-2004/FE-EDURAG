@@ -1,5 +1,11 @@
 import { http, HttpResponse, delay } from 'msw'
-import type { ChatMessage, ChatSession, SendMessageRequest } from '@/types'
+import type {
+  ChatMessage,
+  ChatSession,
+  SendMessageRequest,
+  SendMessageResponse,
+  WireChatMessage,
+} from '@/types'
 import { genMessageId, genSessionId, mockChatMessages, mockChatSessions } from './data'
 import { MOCK_PDF_BASE64 } from './mockPdf'
 
@@ -21,12 +27,37 @@ const fail = (status: number, errorCode: string, message: string) =>
 // Từ khóa mô phỏng câu hỏi ngoài phạm vi tài liệu (UC 7: không bịa câu trả lời).
 const OUT_OF_SCOPE = ['thời tiết', 'bóng đá', 'nấu ăn', 'crypto', 'chứng khoán']
 
+/**
+ * Map tin nhắn lưu nội bộ (role) sang shape BE thật (senderType) để mock khớp contract B7.
+ * noAnswer = trợ lý trả lời không kèm trích dẫn (ngoài phạm vi tài liệu).
+ */
+export const toWireMessage = (
+  m: ChatMessage,
+  sessionId: number,
+  order: number,
+): WireChatMessage => ({
+  // Dữ liệu seed dùng id chuỗi (vd 's1-u') → fallback số duy nhất theo phiên/thứ tự.
+  id: Number.isFinite(Number(m.id)) ? Number(m.id) : sessionId * 100000 + order,
+  sessionId,
+  senderType: m.role === 'user' ? 'USER' : 'ASSISTANT',
+  messageOrder: order,
+  content: m.content,
+  status: 'COMPLETED',
+  noAnswer: m.role === 'assistant' && (m.citations?.length ?? 0) === 0,
+  clientRequestId: null,
+  errorCode: null,
+  completedAt: m.createdAt,
+  createdAt: m.createdAt,
+  citations: m.citations ?? [],
+})
+
 /** Lưu tin nhắn vào kho dùng chung + cập nhật phiên (để màn Lịch sử phản ánh đúng). */
 const appendMessage = (sessionId: string, message: ChatMessage) => {
   mockChatMessages[sessionId] = [...(mockChatMessages[sessionId] ?? []), message]
   const session = mockChatSessions.find((s) => String(s.id) === sessionId)
   if (session) {
     session.updatedAt = message.createdAt
+    session.lastMessageAt = message.createdAt
     // Đặt tiêu đề phiên theo câu hỏi đầu tiên (giống cách các app chat vẫn làm).
     if (session.title === 'Cuộc trò chuyện mới' && message.role === 'user') {
       session.title = message.content.slice(0, 60) || session.title
@@ -45,6 +76,7 @@ export const chatHandlers = [
       title: body.title ?? 'Cuộc trò chuyện mới',
       createdAt: now,
       updatedAt: now,
+      lastMessageAt: null,
     }
     mockChatSessions.push(session)
     mockChatMessages[String(session.id)] = []
@@ -64,119 +96,64 @@ export const chatHandlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
-  // POST /api/chat/sessions/{id}/messages — gửi câu hỏi (text hoặc ảnh), nhận câu trả lời RAG.
+  // POST /api/chat/sessions/{id}/messages — gửi câu hỏi (chỉ text, đồng bộ). Trả 200 kèm
+  // assistantMessage COMPLETED. Upload ảnh (UC 11) chưa được BE hỗ trợ (chốt B7).
   http.post(`${API}/chat/sessions/:id/messages`, async ({ request, params }) => {
     const sessionId = String(params.id)
-    const contentType = request.headers.get('content-type') ?? ''
-    let content = ''
-    let imageName: string | null = null
-
-    // UC 11: ảnh gửi qua multipart; câu hỏi text gửi qua JSON.
-    if (contentType.includes('multipart/form-data')) {
-      const form = await request.formData()
-      content = (form.get('content') as string) ?? ''
-      const image = form.get('image')
-      if (image && typeof image !== 'string') imageName = image.name
-    } else {
-      content = ((await request.json()) as SendMessageRequest).content
-    }
+    const sessionIdNum = Number(sessionId)
+    const { content, clientRequestId } = (await request.json()) as SendMessageRequest
     const q = content.toLowerCase()
 
-    // Mô phỏng timeout / RAG lỗi để test exception flow (UC 7).
+    // Mô phỏng RAG lỗi để test exception flow (UC 7) → 502.
     if (q.includes('timeout')) {
       await delay(500)
-      return fail(503, 'RAG_UNAVAILABLE', 'Trợ lý AI đang bận, vui lòng thử lại sau giây lát.')
+      return fail(502, 'RAG_UNAVAILABLE', 'Trợ lý AI đang bận, vui lòng thử lại sau giây lát.')
     }
 
-    await delay(900) // mô phỏng độ trễ RAG (OCR/multimodal)
-
+    await delay(900) // mô phỏng độ trễ RAG
     const now = new Date().toISOString()
 
-    // Lưu câu hỏi của người dùng vào kho dùng chung (để Lịch sử — UC 9 — có nội dung).
-    appendMessage(sessionId, {
+    // Lưu câu hỏi của người dùng (để Lịch sử — UC 9 — có nội dung).
+    const userMessage: ChatMessage = {
       id: genMessageId(),
       role: 'user',
-      content: content || '[Ảnh đính kèm]',
+      content,
       createdAt: now,
-    })
-
-    // Lưu câu trả lời rồi mới trả về, để mở lại phiên vẫn thấy đủ hội thoại.
-    const reply = (message: ChatMessage) => {
-      appendMessage(sessionId, message)
-      return ok(message)
     }
+    appendMessage(sessionId, userMessage)
 
-    // UC 11 — ảnh: mô phỏng OCR fail nếu tên file gợi ý ảnh mờ; ngược lại trả tài liệu khớp.
-    if (imageName) {
-      if (/mo|blur|nhoe/i.test(imageName)) {
-        return reply({
-          id: genMessageId(),
-          role: 'assistant',
-          content:
-            'Ảnh chưa đủ rõ để nhận diện nội dung (OCR không đọc được chữ). Vui lòng chụp lại rõ nét hơn.',
-          citations: [],
-          createdAt: now,
-        })
-      }
-      return reply({
-        id: genMessageId(),
-        role: 'assistant',
-        content:
-          'Mình đã phân tích nội dung trong ảnh và tìm thấy các tài liệu liên quan trong kho học liệu:',
-        citations: [
-          {
-            id: 3,
-            documentId: 1,
-            documentTitle: MOCK_DOC_TITLE,
-            pageNumber: 3,
-            sourceText: PAGE3_TEXT,
-          },
-        ],
-        createdAt: now,
-      })
-    }
-
-    // Ngoài phạm vi tài liệu → không bịa, không kèm trích dẫn.
-    if (OUT_OF_SCOPE.some((k) => q.includes(k))) {
-      return reply({
-        id: genMessageId(),
-        role: 'assistant',
-        content:
-          'Xin lỗi, mình không tìm thấy thông tin liên quan trong tài liệu môn học để trả lời câu hỏi này.',
-        citations: [],
-        createdAt: now,
-      })
-    }
-
-    // Trong phạm vi → trả lời kèm ít nhất 1 trích dẫn (UC 7).
-    return reply({
+    // Trả lời: trong phạm vi → kèm trích dẫn; ngoài phạm vi → không bịa, không trích dẫn.
+    const inScope = !OUT_OF_SCOPE.some((k) => q.includes(k))
+    const assistantMessage: ChatMessage = {
       id: genMessageId(),
       role: 'assistant',
-      content: [
-        `Dựa trên tài liệu môn học, đây là nội dung liên quan đến câu hỏi của bạn:`,
-        '',
-        `"${content.trim()}"`,
-        '',
-        'Nội dung được tổng hợp từ các đoạn tài liệu được trích dẫn bên dưới. Bạn có thể xem chi tiết ở nguồn gốc để đối chiếu chính xác.',
-      ].join('\n'),
-      citations: [
-        {
-          id: 1,
-          documentId: 1,
-          documentTitle: MOCK_DOC_TITLE,
-          pageNumber: 3,
-          sourceText: PAGE3_TEXT,
-        },
-        {
-          id: 2,
-          documentId: 1,
-          documentTitle: MOCK_DOC_TITLE,
-          pageNumber: 2,
-          sourceText: 'Bài giảng AI cơ bản',
-        },
-      ],
+      content: inScope
+        ? [
+            'Dựa trên tài liệu môn học, đây là nội dung liên quan đến câu hỏi của bạn:',
+            '',
+            `"${content.trim()}"`,
+            '',
+            'Nội dung được tổng hợp từ các đoạn tài liệu trích dẫn bên dưới. Bạn có thể mở nguồn gốc để đối chiếu.',
+          ].join('\n')
+        : 'Xin lỗi, mình không tìm thấy thông tin liên quan trong tài liệu môn học để trả lời câu hỏi này.',
+      citations: inScope
+        ? [
+            { id: 1, documentId: 1, documentTitle: MOCK_DOC_TITLE, pageNumber: 3, sourceText: PAGE3_TEXT },
+            { id: 2, documentId: 1, documentTitle: MOCK_DOC_TITLE, pageNumber: 2, sourceText: 'Bài giảng AI cơ bản' },
+          ]
+        : [],
       createdAt: now,
-    })
+    }
+    appendMessage(sessionId, assistantMessage)
+
+    const order = (mockChatMessages[sessionId]?.length ?? 1) - 1
+    const response: SendMessageResponse = {
+      duplicate: false,
+      clientRequestId,
+      userMessageId: Number(userMessage.id),
+      assistantMessage: toWireMessage(assistantMessage, sessionIdNum, order),
+    }
+    return ok(response)
   }),
 
   // GET /api/citations/{id} — chi tiết trích dẫn (để lấy originalAvailable trước khi mở file).

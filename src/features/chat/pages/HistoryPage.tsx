@@ -30,14 +30,11 @@ export function HistoryPage() {
 
   const sessions = useMemo(() => data?.items ?? [], [data])
 
-  // Tìm kiếm trong lịch sử (lọc client-side theo tiêu đề + đoạn xem trước).
+  // Tìm kiếm trong lịch sử (lọc client-side theo tiêu đề — BE không trả preview).
   const filtered = useMemo(() => {
     const k = keyword.trim().toLowerCase()
     if (!k) return sessions
-    return sessions.filter(
-      (s) =>
-        s.title.toLowerCase().includes(k) || (s.preview ?? '').toLowerCase().includes(k),
-    )
+    return sessions.filter((s) => s.title.toLowerCase().includes(k))
   }, [sessions, keyword])
 
   const onMutationError = (err: ApiError) => setApiError(err.message)
