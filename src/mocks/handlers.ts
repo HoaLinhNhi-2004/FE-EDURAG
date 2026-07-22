@@ -1,17 +1,17 @@
 import { http, HttpResponse, delay } from 'msw'
 import type {
   ChangePasswordRequest,
-  ChatMessage,
-  ChatSession,
   CourseDocument,
   DocumentVersion,
   LoginRequest,
   LoginResponse,
+  MessagesPage,
   Paginated,
   RegisterRequest,
   ResetPasswordRequest,
   SearchRequest,
   SearchResult,
+  SessionsPage,
   UpdateProfileRequest,
   User,
   VerifyOtpRequest,
@@ -34,7 +34,7 @@ import {
   mockStudents,
   tokenFor,
 } from './data'
-import { chatHandlers } from './chat.handlers'
+import { chatHandlers, toWireMessage } from './chat.handlers'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
@@ -103,23 +103,13 @@ export const authHandlers = [
   http.post(`${API}/auth/logout`, async () => ok(null)),
 
   // POST /api/auth/forgot-password — LUÔN trả thành công (chống dò tài khoản).
+  // BE gửi email kèm link chứa token; không có bước OTP. Dev: mở /reset?token=<MOCK_RESET_TOKEN>.
   http.post(`${API}/auth/forgot-password`, async () => {
     await delay(300)
     return ok(null)
   }),
 
-  // POST /api/auth/verify-reset-otp — bước 1 của reset: xác thực OTP, đổi lấy resetToken.
-  // GIẢ ĐỊNH endpoint (chưa có trong OpenAPI) — chờ BE xác nhận.
-  http.post(`${API}/auth/verify-reset-otp`, async ({ request }) => {
-    await delay(300)
-    const { otpCode } = (await request.json()) as { email: string; otpCode: string }
-    if (otpCode !== MOCK_OTP) {
-      return fail(400, 'OTP_INVALID', 'Mã OTP không đúng hoặc đã hết hạn.')
-    }
-    return ok({ resetToken: MOCK_RESET_TOKEN })
-  }),
-
-  // POST /api/auth/reset-password — bước 2: resetToken + mật khẩu mới.
+  // POST /api/auth/reset-password — luồng 1 bước: token (từ link email) + mật khẩu mới.
   http.post(`${API}/auth/reset-password`, async ({ request }) => {
     await delay(300)
     const { token } = (await request.json()) as ResetPasswordRequest
@@ -169,28 +159,34 @@ export const authHandlers = [
   }),
 
   // GET /api/chat/sessions — danh sách phiên chat (UC 9), mới nhất trước.
-  // preview = câu hỏi đầu phiên, messageCount = số tin nhắn thực tế trong kho.
+  // BE trả {offset,limit,total,sessions}; mỗi phiên có lastMessageAt (không preview/messageCount).
   http.get(`${API}/chat/sessions`, async () => {
     await delay(200)
-    const items: ChatSession[] = [...mockChatSessions]
-      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-      .map((s) => {
-        const msgs = mockChatMessages[String(s.id)] ?? []
-        return { ...s, preview: msgs[0]?.content ?? '', messageCount: msgs.length }
-      })
-    return ok<Paginated<ChatSession>>({ items, total: items.length, offset: 0, limit: items.length })
+    const sessions = [...mockChatSessions].sort(
+      (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+    )
+    return ok<SessionsPage>({ sessions, total: sessions.length, offset: 0, limit: sessions.length })
   }),
 
-  // GET /api/chat/sessions/:id/messages — tin nhắn trong phiên chat
+  // GET /api/chat/sessions/:id/messages — BE trả {session, messages, offset, limit, total}.
   http.get(new RegExp(`${API}/chat/sessions/(.+)/messages`), async ({ request }) => {
     await delay(200)
     const match = request.url.match(/\/chat\/sessions\/(.+)\/messages$/)
     const sessionId = match?.[1]
-    if (!sessionId || !mockChatMessages[sessionId]) {
+    const session = mockChatSessions.find((s) => String(s.id) === sessionId)
+    if (!sessionId || !mockChatMessages[sessionId] || !session) {
       return fail(404, 'SESSION_NOT_FOUND', 'Phiên chat không tồn tại.')
     }
-    const sessionMessages = mockChatMessages[sessionId]
-    return ok<Paginated<ChatMessage>>({ items: sessionMessages, total: sessionMessages.length, offset: 0, limit: sessionMessages.length })
+    const messages = mockChatMessages[sessionId].map((m, i) =>
+      toWireMessage(m, Number(sessionId), i),
+    )
+    return ok<MessagesPage>({
+      session,
+      messages,
+      offset: 0,
+      limit: messages.length,
+      total: messages.length,
+    })
   }),
 
   // Gửi câu hỏi: dùng POST /api/chat/sessions/{id}/messages (xem chat.handlers.ts).

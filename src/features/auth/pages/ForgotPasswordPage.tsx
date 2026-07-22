@@ -17,7 +17,6 @@ export function ForgotPasswordPage() {
   const navigate = useNavigate()
   const [apiError, setApiError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
-  const [sentEmail, setSentEmail] = useState('')
 
   const {
     register,
@@ -30,10 +29,7 @@ export function ForgotPasswordPage() {
 
   const mutation = useMutation({
     mutationFn: authApi.forgotPassword,
-    onSuccess: (_data, variables) => {
-      setSentEmail(variables.email)
-      setSent(true)
-    },
+    onSuccess: () => setSent(true),
     onError: (err: ApiError) => setApiError(err.message),
   })
 
@@ -52,11 +48,12 @@ export function ForgotPasswordPage() {
       {sent ? (
         <div className="mt-6 flex flex-col gap-4">
           <Alert variant="success">
-            Nếu email tồn tại trong hệ thống, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu tới đó.
-            Vui lòng kiểm tra hộp thư (kể cả mục Spam). Liên kết có hiệu lực trong 15 phút.
+            Nếu email tồn tại trong hệ thống, chúng tôi đã gửi liên kết đặt lại mật khẩu tới đó.
+            Vui lòng mở email và bấm vào liên kết để tiếp tục (kiểm tra cả mục Spam). Liên kết có
+            hiệu lực trong 15 phút.
           </Alert>
-          <Button fullWidth onClick={() => navigate(`/reset?email=${encodeURIComponent(sentEmail)}`)}>
-            Tôi đã có mã đặt lại
+          <Button fullWidth variant="secondary" onClick={() => navigate('/login')}>
+            Quay lại đăng nhập
             <ArrowRightIcon width={18} height={18} />
           </Button>
         </div>

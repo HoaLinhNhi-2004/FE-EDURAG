@@ -83,7 +83,7 @@ export function LoginPage() {
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-4" noValidate>
-        <FormField label="Email sinh viên" htmlFor="email" error={errors.email?.message}>
+        <FormField label="Email" htmlFor="email" error={errors.email?.message}>
           <Input
             id="email"
             type="email"

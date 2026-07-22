@@ -82,7 +82,7 @@ export function RegisterPage() {
   return (
     <AuthShell>
       <h1 className="text-2xl font-bold text-slate-900">Tạo tài khoản</h1>
-      <p className="mt-1 text-sm text-slate-500">Đăng ký với email sinh viên để bắt đầu.</p>
+      <p className="mt-1 text-sm text-slate-500">Đăng ký tài khoản sinh viên để bắt đầu.</p>
 
       {apiError && (
         <Alert variant="error" className="mt-4">
@@ -103,11 +103,11 @@ export function RegisterPage() {
         </FormField>
 
         <FormField
-          label="Email sinh viên"
+          label="Email"
           htmlFor="email"
           required
           error={errors.email?.message}
-          hint="Chỉ chấp nhận email @student.*.edu.vn"
+          hint="Email dùng để đăng nhập và nhận thông báo"
         >
           <Input
             id="email"
