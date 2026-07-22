@@ -61,20 +61,9 @@ export interface ForgotPasswordRequest {
 }
 
 /**
- * POST /api/auth/verify-reset-otp — xác thực OTP quên mật khẩu, đổi lấy resetToken.
- * GIẢ ĐỊNH: endpoint này CHƯA có trong OpenAPI (reset hiện 1 bước bằng token) —
- * cần BE bổ sung cho luồng OTP 2 bước.
+ * POST /api/auth/reset-password — luồng quên mật khẩu 1 bước (đã chốt B7):
+ * token lấy từ link trong email (query param ?token=), KHÔNG qua bước OTP.
  */
-export interface VerifyResetOtpRequest {
-  email: string
-  otpCode: string
-}
-
-export interface VerifyResetOtpResponse {
-  resetToken: string
-}
-
-/** POST /api/auth/reset-password — dùng resetToken (từ bước verify OTP) + mật khẩu mới. */
 export interface ResetPasswordRequest {
   token: string
   newPassword: string
