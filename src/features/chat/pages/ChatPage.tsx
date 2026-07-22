@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { SparkleIcon, Spinner } from '@/components/ui'
 import type { Citation } from '@/types'
@@ -6,7 +6,11 @@ import { useChat } from '../hooks/useChat'
 import { MessageBubble } from '../components/MessageBubble'
 import { TypingIndicator } from '../components/TypingIndicator'
 import { ChatInput } from '../components/ChatInput'
-import { PdfViewerPanel } from '../components/PdfViewerPanel'
+
+// Lazy-load viewer: react-pdf (pdfjs ~1MB) chỉ tải khi click trích dẫn (D4 — tách bundle).
+const PdfViewerPanel = lazy(() =>
+  import('../components/PdfViewerPanel').then((m) => ({ default: m.PdfViewerPanel })),
+)
 
 /** UC 7 — Khung chat hỏi đáp; UC 10 — click trích dẫn mở PDF ở panel bên phải. */
 export function ChatPage() {
@@ -69,7 +73,15 @@ export function ChatPage() {
       </section>
 
       {activeCitation && (
-        <PdfViewerPanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
+        <Suspense
+          fallback={
+            <aside className="flex w-[520px] shrink-0 items-center justify-center gap-2 border-l border-slate-200 bg-white text-slate-500">
+              <Spinner /> Đang mở tài liệu…
+            </aside>
+          }
+        >
+          <PdfViewerPanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
+        </Suspense>
       )}
     </div>
   )

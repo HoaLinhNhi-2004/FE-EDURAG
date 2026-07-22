@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -32,6 +33,15 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, 'src'),
       },
+    },
+    // Dùng JSX automatic runtime khi transform test (react-jsx) — khỏi cần import React.
+    esbuild: { jsx: 'automatic' },
+    test: {
+      environment: 'jsdom',
+      globals: false,
+      setupFiles: './src/test/setup.ts',
+      css: false,
+      include: ['src/**/*.{test,spec}.{ts,tsx}'],
     },
   }
 })
