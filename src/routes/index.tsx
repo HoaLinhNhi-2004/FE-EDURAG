@@ -153,6 +153,49 @@ export const router = createBrowserRouter([
     ),
   },
 
+  // Hỏi đáp AI cho Giảng viên & Admin (UC 7)
+  {
+    path: '/dashboard/chat',
+    element: (
+      <ProtectedRoute allowedRoles={['TEACHER', 'ADMIN'] as Role[]}>
+        <DashboardLayout>
+          <Suspense fallback={<div className="p-8 text-slate-400">Đang tải…</div>}>
+            <ChatPage />
+          </Suspense>
+        </DashboardLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  // Lịch sử chat cho Giảng viên & Admin (UC 9)
+  {
+    path: '/dashboard/history',
+    element: (
+      <ProtectedRoute allowedRoles={['TEACHER', 'ADMIN'] as Role[]}>
+        <DashboardLayout>
+          <Suspense fallback={<div className="p-8 text-slate-400">Đang tải…</div>}>
+            <HistoryPage />
+          </Suspense>
+        </DashboardLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  // Hồ sơ cá nhân giảng viên & Admin (UC 4, 5, 6)
+  {
+    path: '/dashboard/profile',
+    element: (
+      <ProtectedRoute allowedRoles={['TEACHER', 'ADMIN'] as Role[]}>
+        <DashboardLayout>
+          <Suspense fallback={<div className="p-8 text-slate-400">Đang tải…</div>}>
+            <ProfilePage />
+          </Suspense>
+        </DashboardLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+
   // Tải lên & quản lý học liệu (UC 13–18)
   {
     path: '/dashboard/documents',

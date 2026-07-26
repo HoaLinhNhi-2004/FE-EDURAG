@@ -102,7 +102,8 @@ const ADMIN_NAV: NavGroup[] = [
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function getInitials(name: string): string {
+function getInitials(name: string | undefined | null): string {
+  if (!name) return '?'
   const parts = name.trim().split(/\s+/)
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
@@ -128,7 +129,7 @@ function Sidebar({ pathname }: { pathname: string }) {
 
   const role = user?.role
   const navGroups = role === 'ADMIN' ? ADMIN_NAV : TEACHER_NAV
-  const initials = user ? getInitials(user.fullName) : '?'
+  const initials = user ? getInitials(user.fullName ?? (user as any).full_name) : '?'
   const badge = roleBadge(role)
 
   /** Dòng phụ dưới tên: khoa (TEACHER) hoặc email (ADMIN) */
@@ -239,7 +240,7 @@ function Sidebar({ pathname }: { pathname: string }) {
           {/* Tên + dòng phụ */}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-slate-800 leading-tight">
-              {user?.fullName ?? '—'}
+              {user?.fullName ?? (user as any)?.full_name ?? '—'}
             </p>
             <p className="text-[10px] text-slate-400 mt-0.5 truncate">{subline}</p>
           </div>

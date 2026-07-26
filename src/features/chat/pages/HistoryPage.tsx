@@ -12,6 +12,7 @@ import {
 } from '@/components/ui'
 import type { ApiError, ChatSession } from '@/types'
 import { chatApi } from '@/api/chat.api'
+import { useAuth } from '@/store/auth'
 import { SessionCard } from '../components/SessionCard'
 
 const SESSIONS_KEY = ['chat', 'sessions']
@@ -19,9 +20,12 @@ const SESSIONS_KEY = ['chat', 'sessions']
 /** UC 9 — Lịch sử trò chuyện: danh sách phiên theo thời gian, mở lại hoặc xóa. */
 export function HistoryPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const queryClient = useQueryClient()
   const [keyword, setKeyword] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
+
+  const chatPath = user?.role === 'STUDENT' ? '/student' : '/dashboard/chat'
 
   const { data, isPending, isError, refetch, isFetching } = useQuery({
     queryKey: SESSIONS_KEY,
@@ -128,7 +132,7 @@ export function HistoryPage() {
               <p className="mt-1 max-w-sm text-sm">
                 Các phiên hỏi đáp của bạn sẽ được lưu tại đây để xem lại bất cứ lúc nào.
               </p>
-              <Button className="mt-4" onClick={() => navigate('/student')}>
+              <Button className="mt-4" onClick={() => navigate(chatPath)}>
                 Bắt đầu hỏi đáp
               </Button>
             </div>
@@ -142,7 +146,7 @@ export function HistoryPage() {
                 <SessionCard
                   key={session.id}
                   session={session}
-                  onOpen={() => navigate(`/student?session=${session.id}`)}
+                  onOpen={() => navigate(`${chatPath}?session=${session.id}`)}
                   onDelete={() => handleDeleteOne(session)}
                 />
               ))}

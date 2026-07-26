@@ -139,9 +139,11 @@ export function StudentManagementPage() {
 
   const filtered = students.filter((s) => {
     const q = search.toLowerCase()
+    const name = s.fullName ?? (s as any).full_name ?? ''
+    const code = s.studentCode ?? (s as any).student_code ?? ''
     return (
-      s.fullName.toLowerCase().includes(q) ||
-      (s.studentCode ?? '').toLowerCase().includes(q)
+      name.toLowerCase().includes(q) ||
+      code.toLowerCase().includes(q)
     )
   })
 
@@ -149,15 +151,17 @@ export function StudentManagementPage() {
 
   /** Lấy khóa học (năm nhập học) từ MSV — VD: SV2021001234 → 2021 */
   const getCohort = (s: User) => {
-    if (s.studentCode) {
-      const match = s.studentCode.match(/\d{4}/)
+    const code = s.studentCode ?? (s as any).student_code
+    if (code) {
+      const match = code.match(/\d{4}/)
       if (match) return match[0]
     }
     return '—'
   }
 
   /** Initials avatar */
-  function getInitials(name: string): string {
+  function getInitials(name: string | undefined | null): string {
+    if (!name) return '?'
     const parts = name.trim().split(/\s+/)
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
@@ -212,7 +216,7 @@ export function StudentManagementPage() {
               <tbody>
                 {filtered.map((s) => {
                   const st = STATUS_MAP[s.status] ?? STATUS_MAP.ACTIVE
-                  const initials = getInitials(s.fullName)
+                  const initials = getInitials(s.fullName ?? (s as any).full_name)
                   const isResetting = resetingId === s.id
                   const justReset = resetSuccessId === s.id
 
@@ -228,7 +232,7 @@ export function StudentManagementPage() {
                             {initials}
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-semibold text-slate-900 leading-tight">{s.fullName}</span>
+                            <span className="font-semibold text-slate-900 leading-tight">{s.fullName ?? (s as any).full_name}</span>
                             <span className="text-[11px] text-slate-400 mt-0.5">{s.email}</span>
                           </div>
                         </div>
@@ -237,7 +241,7 @@ export function StudentManagementPage() {
                       {/* MSV */}
                       <td className="px-5 py-3.5">
                         <span className="font-mono font-semibold text-slate-700 text-[13px]">
-                          {s.studentCode ?? '—'}
+                          {s.studentCode ?? (s as any).student_code ?? '—'}
                         </span>
                       </td>
 

@@ -68,7 +68,7 @@ interface AssignModalProps {
 }
 
 function AssignModal({ teacher, onClose, onAssigned }: AssignModalProps) {
-  const [selected, setSelected] = useState<Set<string>>(new Set(teacher.assignedCourses ?? []))
+  const [selected, setSelected] = useState<Set<string>>(new Set(teacher.assignedCourses ?? (teacher as any).assigned_courses ?? []))
   const [loading, setLoading] = useState(false)
 
   const toggleCourse = (id: string) => {
@@ -105,7 +105,7 @@ function AssignModal({ teacher, onClose, onAssigned }: AssignModalProps) {
         </div>
         <div className="p-6">
           <p className="text-sm text-slate-500 mb-4">
-            Chọn các môn học mà giảng viên <strong className="text-slate-700">{teacher.fullName}</strong> được quyền tải tài liệu lên:
+            Chọn các môn học mà giảng viên <strong className="text-slate-700">{teacher.fullName ?? (teacher as any).full_name}</strong> được quyền tải tài liệu lên:
           </p>
           <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto pr-2">
             {COURSES.map(c => (
@@ -176,7 +176,8 @@ export function TeacherManagementPage() {
   const pendingCount = teachers.filter(t => t.status === 'PENDING').length
 
   const filtered = teachers.filter(t => {
-    const matchSearch = t.fullName.toLowerCase().includes(search.toLowerCase()) || t.email.toLowerCase().includes(search.toLowerCase())
+    const name = t.fullName ?? (t as any).full_name ?? ''
+    const matchSearch = name.toLowerCase().includes(search.toLowerCase()) || t.email.toLowerCase().includes(search.toLowerCase())
     const matchStatus = filterStatus === 'ALL' || t.status === filterStatus
     return matchSearch && matchStatus
   })
@@ -274,22 +275,22 @@ export function TeacherManagementPage() {
                     <tr key={t.id} className={`border-b border-slate-50 transition-colors hover:bg-slate-50/50 ${i % 2 === 0 ? '' : 'bg-slate-50/30'}`}>
                       <td className="px-5 py-4">
                         <div className="flex flex-col">
-                          <span className="font-semibold text-slate-900">{t.fullName}</span>
+                          <span className="font-semibold text-slate-900">{t.fullName ?? (t as any).full_name}</span>
                           <span className="text-xs text-slate-500 mt-0.5">{t.email}</span>
                         </div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex flex-col">
-                          <span className="text-slate-700">{t.department || 'Chưa cập nhật'}</span>
-                          <span className="text-[11px] text-slate-400 mt-0.5">{t.academicTitle || 'Giảng viên'}</span>
+                          <span className="text-slate-700">{t.department ?? (t as any).department ?? 'Chưa cập nhật'}</span>
+                          <span className="text-[11px] text-slate-400 mt-0.5">{t.academicTitle ?? (t as any).academic_title ?? 'Giảng viên'}</span>
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-slate-600 font-medium">{formatDate(t.joinDate)}</span>
+                        <span className="text-slate-600 font-medium">{formatDate(t.joinDate ?? (t as any).created_at)}</span>
                       </td>
                       <td className="px-5 py-4">
                         <span className="inline-flex min-w-[2rem] items-center justify-center rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
-                          {t.documentCount ?? 0}
+                          {t.documentCount ?? (t as any).document_count ?? 0}
                         </span>
                       </td>
                       <td className="px-5 py-4">
@@ -298,17 +299,20 @@ export function TeacherManagementPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4 max-w-[200px]">
-                        {t.assignedCourses && t.assignedCourses.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {t.assignedCourses.map(c => (
-                              <span key={c} className="text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded font-mono">
-                                {c}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">Chưa gán môn</span>
-                        )}
+                        {(() => {
+                          const courses = t.assignedCourses ?? (t as any).assigned_courses;
+                          return courses && courses.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {courses.map((c: string) => (
+                                <span key={c} className="text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded font-mono">
+                                  {c}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">Chưa gán môn</span>
+                          )
+                        })()}
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
