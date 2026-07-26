@@ -29,13 +29,7 @@ const HistoryPage = lazy(() => import('@/features/chat/pages/HistoryPage').then(
 const DocumentsPage = lazy(() => import('@/features/documents/pages/DocumentsPage').then((m) => ({ default: m.DocumentsPage })))
 const TeacherManagementPage = lazy(() => import('@/features/admin/pages/TeacherManagementPage').then((m) => ({ default: m.TeacherManagementPage })))
 const StudentManagementPage = lazy(() => import('@/features/admin/pages/StudentManagementPage').then((m) => ({ default: m.StudentManagementPage })))
-const PipelinePage = lazy(() => import('@/features/admin/pages/PipelinePage').then((m) => ({ default: m.PipelinePage })))
 const FinOpsPage = lazy(() => import('@/features/admin/pages/FinOpsPage').then((m) => ({ default: m.FinOpsPage })))
-
-// Placeholder cho khu vực Giảng viên/Admin (LN Long)
-function DashboardHome() {
-  return <div>Chào mừng vào Bảng điều khiển (GV / Admin)</div>
-}
 
 function RoleRedirector() {
   const { status, isAuthenticated, user } = useAuth()
@@ -43,7 +37,7 @@ function RoleRedirector() {
   if (!isAuthenticated) return <Navigate to="/login" replace />
   // Điều hướng theo role (theo kiểu `Role` trong src/types/auth.ts)
   if (user?.role === 'STUDENT') return <Navigate to="/student" replace />
-  return <Navigate to="/dashboard" replace />
+  return <Navigate to="/dashboard/chat" replace />
 }
 
 export const router = createBrowserRouter([
@@ -144,13 +138,7 @@ export const router = createBrowserRouter([
   // Dashboard for Lecturer & Admin
   {
     path: '/dashboard',
-    element: (
-      <ProtectedRoute allowedRoles={['TEACHER', 'ADMIN'] as Role[]}>
-        <DashboardLayout>
-          <DashboardHome />
-        </DashboardLayout>
-      </ProtectedRoute>
-    ),
+    element: <Navigate to="/dashboard/chat" replace />,
   },
 
   // Hỏi đáp AI cho Giảng viên & Admin (UC 7)
@@ -238,19 +226,6 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // Pipeline & Vector DB (ADMIN)
-  {
-    path: '/dashboard/pipeline',
-    element: (
-      <ProtectedRoute allowedRoles={['ADMIN'] as Role[]}>
-        <DashboardLayout>
-          <Suspense fallback={<div className="p-8 text-slate-400">Đang tải…</div>}>
-            <PipelinePage />
-          </Suspense>
-        </DashboardLayout>
-      </ProtectedRoute>
-    ),
-  },
 
   // FinOps & Token (ADMIN)
   {

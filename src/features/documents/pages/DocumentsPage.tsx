@@ -22,6 +22,8 @@ function fileExt(name: string) {
 }
 
 const COURSES = [
+  { id: 'CS101', name: 'Trí tuệ nhân tạo' },
+  { id: 'CS102', name: 'Hệ thống thông minh' },
   { id: 'ML101', name: 'Học Máy & AI' },
   { id: 'DL201', name: 'Deep Learning' },
   { id: 'NLP301', name: 'NLP' },
@@ -42,10 +44,32 @@ const MAX_BYTES = 50 * 1024 * 1024
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   ready:   { label: 'Hoạt động', cls: 'bg-emerald-100 text-emerald-700' },
   queued:  { label: 'Hàng chờ',  cls: 'bg-amber-100 text-amber-700' },
-  indexing:{ label: 'Đang xử lý',cls: 'bg-blue-100 text-blue-700' },
-  ocr:     { label: 'OCR',       cls: 'bg-blue-100 text-blue-700' },
-  parsing: { label: 'Parsing',   cls: 'bg-blue-100 text-blue-700' },
+  uploaded:{ label: 'Đã tải lên', cls: 'bg-indigo-100 text-indigo-700' },
+  processing:{ label: 'Đang xử lý',cls: 'bg-blue-100 text-blue-700' },
   failed:  { label: 'Lỗi',       cls: 'bg-red-100 text-red-700' },
+}
+
+function mapBackendDocument(d: any): CourseDocument {
+  const courseId = d.courseId ?? 'CS101'
+  const courseOpt = COURSES.find(c => c.id === courseId)
+  return {
+    id: d.id,
+    name: d.originalFilename ?? d.original_filename ?? '',
+    fileType: (d.fileType ?? d.file_type ?? 'pdf').toLowerCase() as any,
+    courseId: courseId,
+    courseName: courseOpt ? courseOpt.name : 'Môn học chung',
+    sizeBytes: d.fileSizeBytes ?? d.file_size_bytes ?? 0,
+    status: (d.processingStatus ?? d.processing_status ?? 'ready').toLowerCase() as any,
+    hidden: (d.visibilityStatus ?? d.visibility_status) === 'HIDDEN',
+    uploadedBy: String(d.uploadedBy ?? d.uploaded_by ?? ''),
+    uploadedAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
+    currentVersion: d.currentVersion ?? 1,
+    title: d.title,
+    author: d.author,
+    docType: d.docType,
+    publishYear: d.publishYear,
+    abstract: d.abstract,
+  }
 }
 
 // ─── Upload Modal ─────────────────────────────────────────────────────────────
@@ -96,6 +120,7 @@ function UploadModal({ onClose, onUploaded }: UploadModalProps) {
       if (docType) fd.append('docType', docType)
       if (publishYear.trim()) fd.append('publishYear', publishYear.trim())
       if (abstract.trim()) fd.append('abstract', abstract.trim())
+      
       const res = await fetch(`${API}/documents`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -103,13 +128,12 @@ function UploadModal({ onClose, onUploaded }: UploadModalProps) {
       })
       const json = await res.json()
       if (!res.ok) { setError(json.message ?? 'Upload thất bại.'); return }
-      onUploaded(json.data)
+      onUploaded(mapBackendDocument(json.data.document))
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.')
     } finally { setLoading(false) }
   }
 
-  // close on backdrop click
   function onBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose()
   }
@@ -294,7 +318,10 @@ export function DocumentsPage() {
     const tok = getAccessToken()
     fetch(`${API}/documents`, { headers: { Authorization: `Bearer ${tok}` } })
       .then((r) => r.json())
-      .then((j) => setDocs(j.data?.items ?? []))
+      .then((j) => {
+        const rawDocs = j.data?.documents ?? []
+        setDocs(rawDocs.map(mapBackendDocument))
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -308,13 +335,16 @@ export function DocumentsPage() {
 
   async function toggleVisibility(doc: CourseDocument) {
     const tok = getAccessToken()
-    const res = await fetch(`${API}/documents/${doc.id}/visibility`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hidden: !doc.hidden }),
+    const action = doc.hidden ? 'unhide' : 'hide'
+    const res = await fetch(`${API}/documents/${doc.id}/${action}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}` }
     })
     const j = await res.json()
-    if (res.ok) setDocs((prev) => prev.map((d) => (d.id === doc.id ? j.data : d)))
+    if (res.ok) {
+      const updatedDoc = mapBackendDocument(j.data.document)
+      setDocs((prev) => prev.map((d) => (d.id === doc.id ? updatedDoc : d)))
+    }
   }
 
   async function confirmDelete() {
@@ -347,7 +377,7 @@ export function DocumentsPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Quản lý Học liệu</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Tải lên, cập nhật và quản lý tài liệu môn học</p>
+            <p className="text-sm text-slate-500 mt-0.5">Tải lên, ẩn/hiện và xóa tài liệu môn học</p>
           </div>
           <button
             id="btn-upload-doc"

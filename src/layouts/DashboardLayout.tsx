@@ -24,7 +24,6 @@ import {
   BellIcon,
   UserIcon,
   UsersIcon,
-  DatabaseIcon,
   ZapIcon,
   ChevronDownIcon,
   ChevronUpIcon,
@@ -89,7 +88,6 @@ const ADMIN_NAV: NavGroup[] = [
   {
     heading: 'HẠ TẦNG AI',
     items: [
-      { label: 'Pipeline & Vector DB', to: '/dashboard/pipeline', Icon: DatabaseIcon },
       { label: 'FinOps & Token', to: '/dashboard/finops', Icon: ZapIcon },
     ],
   },

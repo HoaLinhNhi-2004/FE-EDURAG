@@ -4,11 +4,8 @@
   - Features:
       • Hiển thị danh sách sinh viên (tên, MSV, khóa, trạng thái).
       • Tìm kiếm theo tên hoặc MSV.
-      • Đặt lại mật khẩu (reset password).
       • Khóa / Mở khóa tài khoản.
-      • Xóa sinh viên.
-      • Import Excel (UI placeholder).
-  - Data: Gọi API /admin/students (MSW mock).
+  - Data: Gọi API /admin/users?role=STUDENT.
 */
 import { useState, useEffect } from 'react'
 import { getAccessToken } from '@/utils/token'
@@ -31,31 +28,6 @@ function IconUnlock({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
       <path d="M7 11V7a5 5 0 0 1 9.9-1" />
-    </svg>
-  )
-}
-function IconKey({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="7.5" cy="15.5" r="5.5" />
-      <path d="M21 2l-9.6 9.6" />
-      <path d="M15.5 7.5l3 3L22 7l-3-3" />
-    </svg>
-  )
-}
-function IconUpload({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  )
-}
-function IconCheck({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M20 6 9 17l-5-5" />
     </svg>
   )
 }
@@ -84,18 +56,16 @@ export function StudentManagementPage() {
   const [students, setStudents] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [resetingId, setResetingId] = useState<number | null>(null)
-  const [resetSuccessId, setResetSuccessId] = useState<number | null>(null)
 
   useEffect(() => {
     const fetchStudents = async () => {
       try {
         const tok = getAccessToken()
-        const res = await fetch(`${API}/admin/students`, {
+        const res = await fetch(`${API}/admin/users?role=STUDENT`, {
           headers: { Authorization: `Bearer ${tok}` },
         })
         const data = await res.json()
-        if (res.ok) setStudents(data.data?.items ?? [])
+        if (res.ok) setStudents(data.data?.users ?? [])
       } finally {
         setLoading(false)
       }
@@ -106,34 +76,23 @@ export function StudentManagementPage() {
   // Khóa / Mở khóa tài khoản
   const updateStatus = async (id: number, status: 'ACTIVE' | 'LOCKED') => {
     const tok = getAccessToken()
-    const res = await fetch(`${API}/admin/students/${id}/status`, {
-      method: 'PATCH',
+    let payload: any = { status }
+    if (status === 'LOCKED') {
+      payload.lockReason = 'Khóa tài khoản bởi quản trị viên.'
+    }
+
+    const res = await fetch(`${API}/admin/users/${id}/status`, {
+      method: 'PUT',
       headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(payload),
     })
     if (res.ok) {
       const data = await res.json()
       setStudents((prev) =>
         prev.map((s) =>
-          s.id === id ? { ...s, status: data.data.status, authVersion: data.data.authVersion } : s
+          s.id === id ? { ...s, status: data.data.status } : s
         )
       )
-    }
-  }
-
-  // Đặt lại mật khẩu
-  const resetPassword = async (id: number) => {
-    setResetingId(id)
-    try {
-      const tok = getAccessToken()
-      await fetch(`${API}/admin/students/${id}/reset-password`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${tok}` },
-      })
-      setResetSuccessId(id)
-      setTimeout(() => setResetSuccessId(null), 2000)
-    } finally {
-      setResetingId(null)
     }
   }
 
@@ -173,12 +132,8 @@ export function StudentManagementPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Quản lý Sinh viên</h1>
-          <p className="text-sm text-slate-500 mt-1">Thêm mới hàng loạt, đặt lại mật khẩu và quản lý tài khoản</p>
+          <p className="text-sm text-slate-500 mt-1">Quản lý trạng thái hoạt động của tài khoản sinh viên</p>
         </div>
-        <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200">
-          <IconUpload className="w-4 h-4" />
-          Import Excel
-        </button>
       </div>
 
       {/* ── Search ── */}
@@ -217,8 +172,6 @@ export function StudentManagementPage() {
                 {filtered.map((s) => {
                   const st = STATUS_MAP[s.status] ?? STATUS_MAP.ACTIVE
                   const initials = getInitials(s.fullName ?? (s as any).full_name)
-                  const isResetting = resetingId === s.id
-                  const justReset = resetSuccessId === s.id
 
                   return (
                     <tr
@@ -261,26 +214,6 @@ export function StudentManagementPage() {
                       {/* Thao tác */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-1.5">
-                          {/* Đặt lại MK */}
-                          <button
-                            onClick={() => resetPassword(s.id)}
-                            disabled={isResetting}
-                            title="Đặt lại mật khẩu"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
-                          >
-                            {justReset ? (
-                              <>
-                                <IconCheck className="w-3.5 h-3.5 text-emerald-500" />
-                                <span className="text-emerald-600">Đã đặt</span>
-                              </>
-                            ) : (
-                              <>
-                                <IconKey className="w-3.5 h-3.5 text-slate-400" />
-                                Đặt lại MK
-                              </>
-                            )}
-                          </button>
-
                           {/* Khóa / Mở khóa */}
                           {s.status === 'ACTIVE' ? (
                             <button
@@ -289,7 +222,7 @@ export function StudentManagementPage() {
                               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 transition-colors"
                             >
                               <IconLock className="w-3.5 h-3.5" />
-                              Khóa
+                              Khóa tài khoản
                             </button>
                           ) : (
                             <button
@@ -298,7 +231,7 @@ export function StudentManagementPage() {
                               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors"
                             >
                               <IconUnlock className="w-3.5 h-3.5" />
-                              Mở
+                              Mở khóa
                             </button>
                           )}
 
