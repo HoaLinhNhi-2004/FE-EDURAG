@@ -26,6 +26,7 @@ const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPassword
 const ChatPage = lazy(() => import('@/features/chat/pages/ChatPage').then((m) => ({ default: m.ChatPage })))
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const HistoryPage = lazy(() => import('@/features/chat/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
+const LibraryPage = lazy(() => import('@/features/library/pages/LibraryPage').then((m) => ({ default: m.LibraryPage })))
 const DocumentsPage = lazy(() => import('@/features/documents/pages/DocumentsPage').then((m) => ({ default: m.DocumentsPage })))
 const TeacherManagementPage = lazy(() => import('@/features/admin/pages/TeacherManagementPage').then((m) => ({ default: m.TeacherManagementPage })))
 const StudentManagementPage = lazy(() => import('@/features/admin/pages/StudentManagementPage').then((m) => ({ default: m.StudentManagementPage })))
@@ -121,6 +122,20 @@ export const router = createBrowserRouter([
         <ClientLayout>
           <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
             <HistoryPage />
+          </Suspense>
+        </ClientLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  // Thư viện tài liệu — xem & tải tài liệu (visible+ready)
+  {
+    path: '/student/documents',
+    element: (
+      <ProtectedRoute allowedRoles={['STUDENT'] as Role[]}>
+        <ClientLayout>
+          <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
+            <LibraryPage />
           </Suspense>
         </ClientLayout>
       </ProtectedRoute>

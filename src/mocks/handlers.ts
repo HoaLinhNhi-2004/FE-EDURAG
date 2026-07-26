@@ -35,6 +35,7 @@ import {
   tokenFor,
 } from './data'
 import { chatHandlers, toWireMessage } from './chat.handlers'
+import { libraryHandlers } from './library.handlers'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
@@ -382,4 +383,4 @@ export const studentAdminHandlers = [
   }),
 ]
 
-export const handlers = [...authHandlers, ...chatHandlers, ...teacherAdminHandlers, ...studentAdminHandlers]
+export const handlers = [...authHandlers, ...chatHandlers, ...libraryHandlers, ...teacherAdminHandlers, ...studentAdminHandlers]
