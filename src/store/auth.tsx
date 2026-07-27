@@ -27,7 +27,7 @@ interface AuthContextValue {
   user: User | null
   status: AuthStatus
   isAuthenticated: boolean
-  login: (token: string, user: User) => void
+  login: (token: string, user?: User | null) => void
   logout: () => void
   hasRole: (...roles: Role[]) => boolean
 }
@@ -51,9 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   })
 
   const login = useCallback(
-    (token: string, user: User) => {
+    (token: string, user?: User | null) => {
       setAccessToken(token)
-      queryClient.setQueryData(ME_QUERY_KEY, user)
+      // BE không phải lúc nào cũng trả user kèm token: dọn cache để meQuery
+      // tự gọi /profile thay vì hiển thị hồ sơ rỗng của phiên trước.
+      if (user) queryClient.setQueryData(ME_QUERY_KEY, user)
+      else queryClient.removeQueries({ queryKey: ME_QUERY_KEY })
       setHasToken(true)
     },
     [queryClient],
