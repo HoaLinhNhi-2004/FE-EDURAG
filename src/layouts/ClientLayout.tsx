@@ -42,7 +42,8 @@ const NAV_ITEMS = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 /** Lấy 2 chữ cái đầu từ fullName (VD: "Nguyễn Văn An" → "NA") */
-function getInitials(name: string): string {
+function getInitials(name: string | undefined | null): string {
+  if (!name) return '?'
   const parts = name.trim().split(/\s+/)
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
@@ -58,7 +59,7 @@ function Sidebar({ pathname }: SidebarProps) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const initials = user ? getInitials(user.fullName) : '?'
+  const initials = user ? getInitials(user.fullName ?? (user as any).full_name) : '?'
 
   function handleLogout() {
     logout()
@@ -146,7 +147,7 @@ function Sidebar({ pathname }: SidebarProps) {
           {/* Name + student code — hiện đầy đủ, không truncate */}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-slate-800 leading-tight">
-              {user?.fullName ?? '—'}
+              {user?.fullName ?? (user as any)?.full_name ?? '—'}
             </p>
             <p className="text-[10px] text-slate-400 mt-0.5">
               {user?.studentCode ?? user?.email ?? ''}
