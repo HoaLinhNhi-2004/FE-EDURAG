@@ -33,7 +33,11 @@ export interface LoginRequest {
 /** Login trả JWT cho STUDENT/TEACHER (ACTIVE); ADMIN nhận requireOtp (UC 19). */
 export interface LoginResponse {
   token: string
-  user: User
+  /**
+   * Chưa chốt cứng với BE: có endpoint trả kèm hồ sơ, có endpoint chỉ trả token.
+   * Thiếu user không phải lỗi — store auth sẽ gọi `/profile` để lấy hồ sơ đầy đủ.
+   */
+  user?: User
 }
 
 export interface AdminOtpChallenge {
