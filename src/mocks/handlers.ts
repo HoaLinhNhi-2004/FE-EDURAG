@@ -205,6 +205,13 @@ export const authHandlers = [
     return ok<Paginated<CourseDocument>>({ items: mockDocuments, total: mockDocuments.length, offset: 0, limit: mockDocuments.length })
   }),
 
+  // GET /api/library/documents — thư viện tài liệu học sinh
+  http.get(`${API}/library/documents`, async () => {
+    await delay(200)
+    const visibleDocs = mockDocuments.filter(d => !d.hidden)
+    return ok<Paginated<CourseDocument>>({ items: visibleDocs, total: visibleDocs.length, offset: 0, limit: visibleDocs.length })
+  }),
+
   // POST /api/documents — upload tài liệu mới (multipart/form-data)
   http.post(`${API}/documents`, async ({ request }) => {
     await delay(800)

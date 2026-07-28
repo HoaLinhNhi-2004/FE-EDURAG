@@ -6,6 +6,7 @@ import {
   Button,
   ChatBubbleIcon,
   Input,
+  PageHeader,
   SearchIcon,
   Spinner,
   TrashIcon,
@@ -73,25 +74,27 @@ export function HistoryPage() {
   const busy = deleteOne.isPending || deleteAll.isPending
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-3xl px-6 py-8">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Lịch sử trò chuyện</h1>
-            <p className="mt-1 text-sm text-slate-500">{sessions.length} phiên chat đã lưu</p>
-          </div>
-          {sessions.length > 0 && (
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <PageHeader
+        title="Lịch sử trò chuyện"
+        subtitle={`${sessions.length} phiên chat đã lưu`}
+        actions={
+          sessions.length > 0 ? (
             <Button
               variant="secondary"
               onClick={handleDeleteAll}
               loading={deleteAll.isPending}
-              className="border-red-200 text-red-600 hover:bg-red-50"
+              className="border-red-200 text-red-600 hover:bg-red-50 text-xs py-1.5"
             >
-              <TrashIcon width={16} height={16} />
+              <TrashIcon width={14} height={14} />
               Xóa tất cả
             </Button>
-          )}
-        </div>
+          ) : undefined
+        }
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-3xl px-6 py-6">
+
 
         {apiError && (
           <Alert variant="error" className="mt-4">
@@ -154,6 +157,7 @@ export function HistoryPage() {
           )}
         </div>
       </div>
+    </div>
     </div>
   )
 }

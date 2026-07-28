@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { getAccessToken } from '@/utils/token'
 import type { User } from '@/types'
+import { mapBackendUser, type RawUser } from '@/api/user.mapper'
 import { SearchIcon } from '@/components/ui/icons'
+import { PageHeader } from '@/components/ui'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
@@ -53,10 +55,12 @@ export function TeacherManagementPage() {
     const fetchTeachers = async () => {
       try {
         const tok = getAccessToken()
-        const res = await fetch(`${API}/admin/users?role=TEACHER`, { headers: { Authorization: `Bearer ${tok}` } })
+        const res = await fetch(`${API}/admin/users?role=TEACHER&limit=100`, { headers: { Authorization: `Bearer ${tok}` } })
         const data = await res.json()
         if (res.ok) {
-          setTeachers(data.data?.users ?? [])
+          // BE trả snake_case — dùng mapBackendUser để chuẩn hóa về camelCase
+          const rawUsers: RawUser[] = data.data?.users ?? []
+          setTeachers(rawUsers.map((u) => mapBackendUser(u)!).filter(Boolean))
         }
       } finally {
         setLoading(false)
@@ -67,8 +71,9 @@ export function TeacherManagementPage() {
 
   const updateStatus = async (id: number, status: string) => {
     const tok = getAccessToken()
-    
-    let payload: any = { status }
+
+    // BE yêu cầu reviewNote khi REJECT và lockReason khi LOCK (không được rỗng)
+    const payload: Record<string, string> = { status }
     if (status === 'REJECTED') {
       payload.reviewNote = 'Từ chối duyệt tài khoản giảng viên.'
     } else if (status === 'LOCKED') {
@@ -82,15 +87,21 @@ export function TeacherManagementPage() {
     })
     if (res.ok) {
       const data = await res.json()
-      setTeachers(prev => prev.map(t => t.id === id ? { ...t, status: data.data.status } : t))
+      // BE trả user object đầy đủ trong data.data — map lại để cập nhật state
+      const updated = mapBackendUser(data.data as RawUser)
+      if (updated) {
+        setTeachers((prev) => prev.map((t) => (t.id === id ? updated : t)))
+      }
     }
   }
 
   const pendingCount = teachers.filter(t => t.status === 'PENDING').length
 
-  const filtered = teachers.filter(t => {
-    const name = t.fullName ?? (t as any).full_name ?? ''
-    const matchSearch = name.toLowerCase().includes(search.toLowerCase()) || t.email.toLowerCase().includes(search.toLowerCase())
+  const filtered = teachers.filter((t) => {
+    const name = t.fullName ?? ''
+    const matchSearch =
+      name.toLowerCase().includes(search.toLowerCase()) ||
+      t.email.toLowerCase().includes(search.toLowerCase())
     const matchStatus = filterStatus === 'ALL' || t.status === filterStatus
     return matchSearch && matchStatus
   })
@@ -101,14 +112,12 @@ export function TeacherManagementPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 p-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Quản lý Giảng viên</h1>
-          <p className="text-sm text-slate-500 mt-1">Duyệt và khóa tài khoản giảng viên trong hệ thống</p>
-        </div>
-      </div>
+    <div className="flex flex-col h-full min-h-0 flex-1 overflow-hidden bg-slate-50">
+      <PageHeader
+        title="Quản lý Giảng viên"
+        subtitle="Duyệt và khóa tài khoản giảng viên trong hệ thống"
+      />
+      <div className="flex-1 min-h-0 overflow-y-auto p-6 animate-fade-in">
 
       {/* Banner */}
       {pendingCount > 0 && (
@@ -132,37 +141,38 @@ export function TeacherManagementPage() {
         </div>
       )}
 
-      {/* Filter tabs */}
-      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
-        {[
-          { id: 'ALL', label: 'Tất cả' },
-          { id: 'PENDING', label: `Chờ duyệt (${pendingCount})` },
-          { id: 'ACTIVE', label: 'Đang hoạt động' },
-          { id: 'LOCKED', label: 'Đã khóa' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setFilterStatus(tab.id)}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all whitespace-nowrap ${
-              filterStatus === tab.id
-                ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* Toolbar: Filter tabs & Search aligned */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        {/* Filter tabs */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 rounded-xl overflow-x-auto shrink-0">
+          {[
+            { id: 'ALL', label: 'Tất cả' },
+            { id: 'PENDING', label: `Chờ duyệt${pendingCount > 0 ? ` (${pendingCount})` : ''}` },
+            { id: 'ACTIVE', label: 'Đang hoạt động' },
+            { id: 'LOCKED', label: 'Đã khóa' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFilterStatus(tab.id)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                filterStatus === tab.id
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-      {/* Toolbar */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="relative flex-1 max-w-sm">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width={18} height={18} />
+        {/* Search */}
+        <div className="relative w-full sm:w-72 md:w-80">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width={16} height={16} />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm theo tên hoặc email..."
-            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 shadow-sm"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 shadow-sm"
           />
         </div>
       </div>
@@ -192,7 +202,7 @@ export function TeacherManagementPage() {
                     <tr key={t.id} className={`border-b border-slate-50 transition-colors hover:bg-slate-50/50 ${i % 2 === 0 ? '' : 'bg-slate-50/30'}`}>
                       <td className="px-5 py-4">
                         <div className="flex flex-col">
-                          <span className="font-semibold text-slate-900">{t.fullName ?? (t as any).full_name}</span>
+                          <span className="font-semibold text-slate-900">{t.fullName}</span>
                           <span className="text-xs text-slate-500 mt-0.5">{t.email}</span>
                         </div>
                       </td>
@@ -203,7 +213,7 @@ export function TeacherManagementPage() {
                         </div>
                       </td>
                       <td className="px-5 py-4 text-xs text-slate-500 font-medium">
-                        {formatDate((t as any).createdAt ?? (t as any).created_at)}
+                        {formatDate(t.joinDate)}
                       </td>
                       <td className="px-5 py-4">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${st.cls}`}>
@@ -251,6 +261,7 @@ export function TeacherManagementPage() {
           </div>
         )}
       </div>
+    </div>
     </div>
   )
 }

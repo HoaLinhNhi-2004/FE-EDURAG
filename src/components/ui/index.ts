@@ -3,6 +3,7 @@ export { Input } from './Input'
 export { FormField } from './FormField'
 export { Spinner } from './Spinner'
 export { Alert } from './Alert'
+export { PageHeader } from './PageHeader'
 export {
   // Auth
   MailIcon,

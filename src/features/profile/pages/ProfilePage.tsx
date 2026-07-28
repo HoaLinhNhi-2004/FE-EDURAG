@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Spinner } from '@/components/ui'
+import { Alert, Button, PageHeader, Spinner } from '@/components/ui'
 import { profileApi } from '@/api/profile.api'
 import { ProfileInfoCard } from '../components/ProfileInfoCard'
 import { ChangePasswordCard } from '../components/ChangePasswordCard'
@@ -14,9 +14,13 @@ export function ProfilePage() {
   })
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50">
-      <div className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Hồ sơ cá nhân</h1>
+    <div className="flex flex-col h-full min-h-0 flex-1 overflow-hidden bg-slate-50">
+      <PageHeader
+        title="Hồ sơ cá nhân"
+        subtitle="Quản lý thông tin tài khoản và đổi mật khẩu"
+      />
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="mx-auto max-w-2xl px-4 py-8">
 
         {isPending ? (
           <div className="flex items-center justify-center gap-2 py-16 text-slate-500">
@@ -38,6 +42,7 @@ export function ProfilePage() {
           </div>
         )}
       </div>
+    </div>
     </div>
   )
 }

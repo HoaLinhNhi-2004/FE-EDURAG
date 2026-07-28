@@ -121,6 +121,20 @@ export const router = createBrowserRouter([
     ),
   },
 
+  // Xem tài liệu môn học (Library) cho sinh viên (UC 10)
+  {
+    path: '/student/documents',
+    element: (
+      <ProtectedRoute allowedRoles={['STUDENT'] as Role[]}>
+        <ClientLayout>
+          <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
+            <DocumentsPage />
+          </Suspense>
+        </ClientLayout>
+      </ProtectedRoute>
+    ),
+  },
+
   // Hồ sơ cá nhân sinh viên (UC 4, 5, 6)
   {
     path: '/student/profile',
@@ -183,12 +197,11 @@ export const router = createBrowserRouter([
     ),
   },
 
-
   // Tải lên & quản lý học liệu (UC 13–18)
   {
     path: '/dashboard/documents',
     element: (
-      <ProtectedRoute allowedRoles={['TEACHER'] as Role[]}>
+      <ProtectedRoute allowedRoles={['TEACHER', 'ADMIN'] as Role[]}>
         <DashboardLayout>
           <Suspense fallback={<div className="p-8 text-slate-400">Đang tải…</div>}>
             <DocumentsPage />

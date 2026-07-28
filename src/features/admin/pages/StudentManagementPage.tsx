@@ -10,7 +10,9 @@
 import { useState, useEffect } from 'react'
 import { getAccessToken } from '@/utils/token'
 import type { User } from '@/types'
+import { mapBackendUser, type RawUser } from '@/api/user.mapper'
 import { SearchIcon } from '@/components/ui/icons'
+import { PageHeader } from '@/components/ui'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
@@ -56,16 +58,21 @@ export function StudentManagementPage() {
   const [students, setStudents] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'LOCKED'>('ALL')
 
   useEffect(() => {
     const fetchStudents = async () => {
       try {
         const tok = getAccessToken()
-        const res = await fetch(`${API}/admin/users?role=STUDENT`, {
+        const res = await fetch(`${API}/admin/users?role=STUDENT&limit=100`, {
           headers: { Authorization: `Bearer ${tok}` },
         })
         const data = await res.json()
-        if (res.ok) setStudents(data.data?.users ?? [])
+        if (res.ok) {
+          // BE trả snake_case — dùng mapBackendUser để chuẩn hóa về camelCase
+          const rawUsers: RawUser[] = data.data?.users ?? []
+          setStudents(rawUsers.map((u) => mapBackendUser(u)!).filter(Boolean))
+        }
       } finally {
         setLoading(false)
       }
@@ -76,7 +83,8 @@ export function StudentManagementPage() {
   // Khóa / Mở khóa tài khoản
   const updateStatus = async (id: number, status: 'ACTIVE' | 'LOCKED') => {
     const tok = getAccessToken()
-    let payload: any = { status }
+    // BE yêu cầu lockReason không rỗng khi LOCK
+    const payload: Record<string, string> = { status }
     if (status === 'LOCKED') {
       payload.lockReason = 'Khóa tài khoản bởi quản trị viên.'
     }
@@ -88,29 +96,28 @@ export function StudentManagementPage() {
     })
     if (res.ok) {
       const data = await res.json()
-      setStudents((prev) =>
-        prev.map((s) =>
-          s.id === id ? { ...s, status: data.data.status } : s
-        )
-      )
+      // BE trả user object đầy đủ trong data.data — map lại để cập nhật state
+      const updated = mapBackendUser(data.data as RawUser)
+      if (updated) {
+        setStudents((prev) => prev.map((s) => (s.id === id ? updated : s)))
+      }
     }
   }
 
   const filtered = students.filter((s) => {
     const q = search.toLowerCase()
-    const name = s.fullName ?? (s as any).full_name ?? ''
-    const code = s.studentCode ?? (s as any).student_code ?? ''
-    return (
-      name.toLowerCase().includes(q) ||
-      code.toLowerCase().includes(q)
-    )
+    const name = s.fullName ?? ''
+    const code = s.studentCode ?? ''
+    const matchSearch = name.toLowerCase().includes(q) || code.toLowerCase().includes(q)
+    const matchStatus = filterStatus === 'ALL' || s.status === filterStatus
+    return matchSearch && matchStatus
   })
 
   const lockedCount = students.filter((s) => s.status === 'LOCKED').length
 
   /** Lấy khóa học (năm nhập học) từ MSV — VD: SV2021001234 → 2021 */
   const getCohort = (s: User) => {
-    const code = s.studentCode ?? (s as any).student_code
+    const code = s.studentCode
     if (code) {
       const match = code.match(/\d{4}/)
       if (match) return match[0]
@@ -127,24 +134,46 @@ export function StudentManagementPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 p-6 animate-fade-in">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Quản lý Sinh viên</h1>
-          <p className="text-sm text-slate-500 mt-1">Quản lý trạng thái hoạt động của tài khoản sinh viên</p>
-        </div>
-      </div>
+    <div className="flex flex-col h-full min-h-0 flex-1 overflow-hidden bg-slate-50">
+      <PageHeader
+        title="Quản lý Sinh viên"
+        subtitle="Quản lý trạng thái hoạt động của tài khoản sinh viên"
+      />
+      <div className="flex-1 min-h-0 overflow-y-auto p-6 animate-fade-in">
 
-      {/* ── Search ── */}
-      <div className="relative mb-5 max-w-full">
-        <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" width={18} height={18} />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Tìm theo tên hoặc MSV..."
-          className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 shadow-sm"
-        />
+      {/* ── Toolbar: Filter tabs & Search aligned ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        {/* Filter tabs */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 rounded-xl overflow-x-auto shrink-0">
+          {[
+            { id: 'ALL', label: 'Tất cả' },
+            { id: 'ACTIVE', label: 'Đang hoạt động' },
+            { id: 'LOCKED', label: `Đã khóa${lockedCount > 0 ? ` (${lockedCount})` : ''}` },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFilterStatus(tab.id as 'ALL' | 'ACTIVE' | 'LOCKED')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                filterStatus === tab.id
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="relative w-full sm:w-72 md:w-80">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width={16} height={16} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm theo tên hoặc MSV..."
+            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 shadow-sm"
+          />
+        </div>
       </div>
 
       {/* ── Table card ── */}
@@ -185,7 +214,7 @@ export function StudentManagementPage() {
                             {initials}
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-semibold text-slate-900 leading-tight">{s.fullName ?? (s as any).full_name}</span>
+                            <span className="font-semibold text-slate-900 leading-tight">{s.fullName}</span>
                             <span className="text-[11px] text-slate-400 mt-0.5">{s.email}</span>
                           </div>
                         </div>
@@ -194,7 +223,7 @@ export function StudentManagementPage() {
                       {/* MSV */}
                       <td className="px-5 py-3.5">
                         <span className="font-mono font-semibold text-slate-700 text-[13px]">
-                          {s.studentCode ?? (s as any).student_code ?? '—'}
+                          {s.studentCode ?? '—'}
                         </span>
                       </td>
 
@@ -260,7 +289,7 @@ export function StudentManagementPage() {
           {students.length} sinh viên{lockedCount > 0 && ` · ${lockedCount} đã khóa`}
         </p>
       )}
-
+      </div>
     </div>
   )
 }

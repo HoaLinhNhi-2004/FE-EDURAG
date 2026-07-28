@@ -266,7 +266,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar pathname={pathname} />
-      <main className="flex-1 min-w-0 overflow-y-auto">
+      <main className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
         {children}
       </main>
     </div>
