@@ -21,8 +21,6 @@ export function useChat(initialSessionId?: number) {
   const queryClient = useQueryClient()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const sessionId = useRef<number | null>(initialSessionId ?? null)
-  // Lưu id optimistic của user message để thay thế sau khi BE phản hồi
-  const optimisticUserIdRef = useRef<string | null>(null)
 
   // Đổi phiên (hoặc mở phiên mới) → reset hội thoại đang hiển thị.
   useEffect(() => {
@@ -109,7 +107,6 @@ export function useChat(initialSessionId?: number) {
 
     // Thêm optimistic userMessage với id tạm để UI phản hồi ngay lập tức
     const optimisticId = `u-${Date.now()}`
-    optimisticUserIdRef.current = optimisticId
     setMessages((prev) => [
       ...prev,
       {

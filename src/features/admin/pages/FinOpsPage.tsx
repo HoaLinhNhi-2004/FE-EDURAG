@@ -161,7 +161,20 @@ export function FinOpsPage() {
     const tok = getAccessToken()
     setLoadingSummary(true)
     setSummaryError(null)
-    fetch(`${API}/admin/dashboard/summary`, {
+
+    const now = new Date()
+    let fromDate: Date | null = null
+    if (period === 'day') {
+      fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    } else if (period === 'month') {
+      fromDate = new Date(now.getFullYear(), now.getMonth(), 1)
+    } else if (period === 'year') {
+      fromDate = new Date(now.getFullYear(), 0, 1)
+    }
+
+    const query = fromDate ? `?from=${encodeURIComponent(fromDate.toISOString())}` : ''
+
+    fetch(`${API}/admin/dashboard/summary${query}`, {
       headers: { Authorization: `Bearer ${tok}` },
     })
       .then((r) => r.json())
@@ -171,11 +184,13 @@ export function FinOpsPage() {
       })
       .catch(() => setSummaryError('Lỗi kết nối. Không tải được thống kê.'))
       .finally(() => setLoadingSummary(false))
-  }, [])
+  }, [period])
 
-  // Lấy số liệu từ BE (totals không tách theo period — BE trả tổng toàn bộ)
+  // Lấy số liệu từ BE
   const totals = summary?.usage?.totals
   const breakdown = summary?.usage?.breakdown ?? []
+
+  const periodLabel = period === 'day' ? 'Hôm nay' : period === 'month' ? 'Tháng này' : 'Năm nay'
 
   // Tổng chi phí ước tính từ breakdown
   const estimatedCost = breakdown.reduce(
@@ -200,6 +215,8 @@ export function FinOpsPage() {
     { id: 'month', label: 'Tháng' },
     { id: 'year', label: 'Năm' },
   ]
+
+  const currentMonthYear = `tháng ${new Date().getMonth() + 1}/${new Date().getFullYear()}`
 
   return (
     <div className="flex flex-col h-full min-h-0 flex-1 overflow-hidden bg-slate-50">
@@ -243,7 +260,7 @@ export function FinOpsPage() {
             {loadingSummary ? '...' : fmtTokens(totals?.promptTokens ?? 0)}
           </p>
           <p className="text-xs text-slate-500 mt-0.5">Tổng Prompt Tokens</p>
-          <p className="text-xs text-indigo-500 font-semibold mt-1.5">Tổng cộng</p>
+          <p className="text-xs text-indigo-500 font-semibold mt-1.5">{periodLabel}</p>
         </div>
         {/* Completion tokens */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
@@ -254,7 +271,7 @@ export function FinOpsPage() {
             {loadingSummary ? '...' : fmtTokens(totals?.completionTokens ?? 0)}
           </p>
           <p className="text-xs text-slate-500 mt-0.5">Tổng Completion Tokens</p>
-          <p className="text-xs text-indigo-500 font-semibold mt-1.5">Tổng cộng</p>
+          <p className="text-xs text-indigo-500 font-semibold mt-1.5">{periodLabel}</p>
         </div>
         {/* Chi phí thực tế */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
@@ -282,7 +299,7 @@ export function FinOpsPage() {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         {/* Card header */}
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-base font-bold text-slate-800">Ngân sách tháng 7/2026</h2>
+          <h2 className="text-base font-bold text-slate-800">Ngân sách {currentMonthYear}</h2>
           <div className="flex items-center gap-3">
             <span className={`text-lg font-bold ${usedPct >= budget.warnAt ? 'text-amber-500' : 'text-indigo-600'}`}>
               {usedPct}%

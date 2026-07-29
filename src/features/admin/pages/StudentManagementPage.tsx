@@ -71,7 +71,7 @@ export function StudentManagementPage() {
         if (res.ok) {
           // BE trả snake_case — dùng mapBackendUser để chuẩn hóa về camelCase
           const rawUsers: RawUser[] = data.data?.users ?? []
-          setStudents(rawUsers.map((u) => mapBackendUser(u)!).filter(Boolean))
+          setStudents(rawUsers.map(mapBackendUser).filter((u): u is User => u !== null))
         }
       } finally {
         setLoading(false)

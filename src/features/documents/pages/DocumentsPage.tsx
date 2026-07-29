@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, type DragEvent, type ChangeEv
 import { useAuth } from '@/store/auth'
 import { getAccessToken } from '@/utils/token'
 import type { CourseDocument } from '@/types'
-import { PageHeader } from '@/components/ui'
+import { PageHeader, Alert } from '@/components/ui'
 import {
   CloudUploadIcon, XIcon, UploadIcon, SearchIcon, TrashIcon,
   EyeIcon, EyeOffIcon, DownloadIcon, FileTextIcon,
@@ -348,12 +348,15 @@ export function DocumentsPage() {
       .finally(() => setLoading(false))
   }, [canManage])
 
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+
   function handleDownload(doc: CourseDocument) {
     const tok = getAccessToken()
     const fileUrl = canManage
       ? `${API}/documents/${doc.id}/file`
       : `${API}/library/documents/${doc.id}/source`
     
+    setDownloadError(null)
     fetch(fileUrl, { headers: { Authorization: `Bearer ${tok}` } })
       .then((res) => {
         if (!res.ok) throw new Error('Download failed')
@@ -369,7 +372,7 @@ export function DocumentsPage() {
         a.remove()
         window.URL.revokeObjectURL(url)
       })
-      .catch(() => alert('Không tải được file tài liệu.'))
+      .catch(() => setDownloadError('Không tải được file tài liệu. Vui lòng thử lại sau.'))
   }
 
   const slideCount = docs.filter(d => (d.docType ?? '').toLowerCase().includes('slide') || d.fileType === 'pptx').length
@@ -455,6 +458,13 @@ export function DocumentsPage() {
 
       <div className="flex-1 min-h-0 overflow-y-auto p-6">
         <div className="max-w-6xl mx-auto flex flex-col gap-6">
+
+        {downloadError && (
+          <Alert variant="error" className="flex items-center justify-between">
+            <span>{downloadError}</span>
+            <button onClick={() => setDownloadError(null)} className="ml-4 font-bold text-red-600 hover:text-red-800 text-xs">✕</button>
+          </Alert>
+        )}
 
         {/* ── Toolbar: Search & Filter Pills & View Mode ── */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -561,8 +571,6 @@ export function DocumentsPage() {
             {filtered.map((doc, idx) => {
               const palette = CARD_PALETTES[idx % CARD_PALETTES.length]
               const ext = fileExt(doc.name)
-              const pageBadge = doc.currentVersion ? `${doc.currentVersion * 12 + 10} slides` : '36 slides'
-              const chapterLabel = doc.docType ?? `Chương ${(idx % 6) + 1}`
 
               return (
                 <div
@@ -571,24 +579,23 @@ export function DocumentsPage() {
                 >
                   {/* Top Pastel Banner */}
                   <div className={`h-40 p-4 ${palette.bg} flex flex-col justify-between relative border-b border-slate-100/60`}>
-                    {/* Top Row: Format & Slides badge */}
+                    {/* Top Row: Format badge */}
                     <div className="flex items-center justify-between">
                       <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase bg-white/90 shadow-2xs ${extColor[ext] ?? 'text-slate-600 border-slate-200'}`}>
                         {ext}
                       </span>
-                      <span className="px-2.5 py-0.5 bg-white/90 backdrop-blur-xs rounded-full text-[11px] font-medium text-slate-600 shadow-2xs border border-slate-200/60">
-                        {pageBadge}
-                      </span>
                     </div>
 
-                    {/* Center Icon & Chapter/Unit */}
+                    {/* Center Icon & Category */}
                     <div className="flex flex-col items-center justify-center my-auto">
                       <div className="w-12 h-12 bg-white rounded-2xl shadow-xs border border-slate-100 flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform">
                         <ImageIcon width={22} height={22} className={palette.text} />
                       </div>
-                      <span className={`text-xs font-semibold mt-2 ${palette.text}`}>
-                        {chapterLabel}
-                      </span>
+                      {doc.docType && (
+                        <span className={`text-xs font-semibold mt-2 ${palette.text}`}>
+                          {doc.docType}
+                        </span>
+                      )}
                     </div>
                   </div>
 
