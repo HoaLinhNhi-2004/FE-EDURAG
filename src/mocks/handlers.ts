@@ -205,6 +205,249 @@ export const authHandlers = [
     return ok<Paginated<CourseDocument>>({ items: mockDocuments, total: mockDocuments.length, offset: 0, limit: mockDocuments.length })
   }),
 
+  // GET /api/library/documents — thư viện công khai (READY + VISIBLE + chưa xóa).
+  // Params: q (OR title/description/author), fileType AND, sort (newest|oldest|title_asc|title_desc), page+limit.
+  // search là alias legacy của q. offset là exact legacy offset cho page.
+  // %, _, \ trong q/author là ký tự literal (không phải SQL wildcard).
+  http.get(`${API}/library/documents`, async ({ request }) => {
+    await delay(200)
+    const url = new URL(request.url)
+    const P = url.searchParams
+
+    // ── Legacy alias: search = q (accepted khi giống nhau sau trim) ──
+    const qRaw = P.get('q') ?? ''
+    const searchRaw = P.get('search') ?? ''
+    const qTrimmed = qRaw.trim()
+    const searchTrimmed = searchRaw.trim()
+    if (qTrimmed && searchTrimmed && qTrimmed !== searchTrimmed) {
+      return HttpResponse.json(
+        { success: false, message: 'Conflicting q and search params.', errorCode: 'PARAM_CONFLICT' },
+        { status: 400 },
+      )
+    }
+    const q = qTrimmed || searchTrimmed
+
+    // ── fileType AND filter ──
+    const fileTypeParam = (P.get('fileType') ?? '').toLowerCase()
+
+    // ── Pagination: page+limit (default 1, 12); legacy offset alias ──
+    const pageNum = Math.max(1, Number(P.get('page') ?? 1))
+    const limit = Math.max(1, Math.min(100, Number(P.get('limit') ?? 12)))
+    const offsetParam = P.get('offset')
+    if (offsetParam !== null) {
+      const expectedOffset = (pageNum - 1) * limit
+      if (Number(offsetParam) !== expectedOffset) {
+        return HttpResponse.json(
+          { success: false, message: `offset=${offsetParam} conflicts with page=${pageNum} and limit=${limit}.`, errorCode: 'PARAM_CONFLICT' },
+          { status: 400 },
+        )
+      }
+    }
+
+    // ── Sort ──
+    type SortKey = 'newest' | 'oldest' | 'title_asc' | 'title_desc'
+    const sort = (P.get('sort') ?? 'newest') as SortKey
+
+    // ── Full library dataset (READY + VISIBLE) ──
+    const allDocs: CourseDocument[] = [
+      ...mockDocuments.filter(d => !d.hidden && d.status === 'ready'),
+      {
+        id: 101, name: 'Nhập môn học máy.pdf', fileType: 'pdf',
+        courseId: 'ML101', courseName: 'Học Máy & AI',
+        sizeBytes: 2_400_000, status: 'ready', hidden: false,
+        uploadedBy: 'Nguyễn Thị Phượng',
+        uploadedAt: new Date(Date.now() - 5 * 86_400_000).toISOString(),
+        currentVersion: 2,
+        title: 'Nhập môn học máy – Lý thuyết & Thực hành',
+        author: 'Nguyễn Thị Phượng', docType: 'Giáo trình', publishYear: 2024,
+        abstract: 'Giáo trình cơ bản về học máy, bao gồm hồi quy, phân loại, clustering và mạng nơ-ron.',
+      },
+      {
+        id: 102, name: 'Slide Deep Learning.txt', fileType: 'txt',
+        courseId: 'DL201', courseName: 'Deep Learning',
+        sizeBytes: 8_200_000, status: 'ready', hidden: false,
+        uploadedBy: 'Trần Quốc Hùng',
+        uploadedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+        currentVersion: 1,
+        title: 'Kiến trúc mạng nơ-ron sâu',
+        author: 'Trần Quốc Hùng', docType: 'Bài giảng / Slide', publishYear: 2025,
+        abstract: 'Slide bài giảng về CNN, RNN, Transformer và các kiến trúc deep learning hiện đại.',
+      },
+      {
+        id: 103, name: 'NLP Fundamentals.pdf', fileType: 'pdf',
+        courseId: 'NLP301', courseName: 'NLP',
+        sizeBytes: 3_100_000, status: 'ready', hidden: false,
+        uploadedBy: 'Võ Thị Lan',
+        uploadedAt: new Date(Date.now() - 10 * 86_400_000).toISOString(),
+        currentVersion: 1,
+        title: 'Xử lý ngôn ngữ tự nhiên – Nền tảng',
+        author: 'Võ Thị Lan', docType: 'Giáo trình', publishYear: 2024,
+      },
+      {
+        id: 104, name: 'Bài tập lớn AI.docx', fileType: 'docx',
+        courseId: 'CS101', courseName: 'Trí tuệ nhân tạo',
+        sizeBytes: 512_000, status: 'ready', hidden: false,
+        uploadedBy: 'Nguyễn Thị Phượng',
+        uploadedAt: new Date(Date.now() - 1 * 86_400_000).toISOString(),
+        currentVersion: 1,
+        title: 'Đề bài tập lớn môn Trí tuệ nhân tạo',
+        author: 'Bộ môn CNTT', docType: 'Đề thi / Đáp án', publishYear: 2025,
+      },
+      {
+        id: 105, name: 'CV Vision Slides.txt', fileType: 'txt',
+        courseId: 'CV401', courseName: 'Computer Vision',
+        sizeBytes: 5_600_000, status: 'ready', hidden: false,
+        uploadedBy: 'Nguyễn Thị Phượng',
+        uploadedAt: new Date(Date.now() - 7 * 86_400_000).toISOString(),
+        currentVersion: 1,
+        title: 'Computer Vision – Object Detection & Segmentation',
+        author: 'Nguyễn Thị Phượng', docType: 'Bài giảng / Slide', publishYear: 2025,
+        abstract: 'Slide về YOLO, Faster R-CNN, Mask R-CNN và semantic segmentation.',
+      },
+      {
+        id: 106, name: 'Data Science Handbook.pdf', fileType: 'pdf',
+        courseId: 'DS101', courseName: 'Khoa học Dữ liệu',
+        sizeBytes: 4_800_000, status: 'ready', hidden: false,
+        uploadedBy: 'Trần Quốc Hùng',
+        uploadedAt: new Date(Date.now() - 15 * 86_400_000).toISOString(),
+        currentVersion: 3,
+        title: 'Khoa học Dữ liệu từ A đến Z',
+        author: 'Trần Quốc Hùng', docType: 'Giáo trình', publishYear: 2023,
+        abstract: 'Toàn bộ pipeline phân tích dữ liệu: thu thập, làm sạch, mô hình hóa và trực quan hóa.',
+      },
+    ]
+
+    // ── Server-side filtering ──
+    // q: OR match trong title/description(abstract)/author — %, _, \ là literal
+    let result = allDocs
+    if (q) {
+      const lower = q.toLowerCase()
+      result = result.filter(d =>
+        (d.title ?? d.name ?? '').toLowerCase().includes(lower) ||
+        (d.abstract ?? '').toLowerCase().includes(lower) ||
+        (d.author ?? '').toLowerCase().includes(lower),
+      )
+    }
+
+    // fileType: AND filter
+    if (fileTypeParam) {
+      result = result.filter(d => (d.fileType ?? '').toLowerCase() === fileTypeParam)
+    }
+
+    // ── Sort (với id tie-breaker) ──
+    result = [...result].sort((a, b) => {
+      if (sort === 'newest') {
+        const diff = Date.parse(b.uploadedAt) - Date.parse(a.uploadedAt)
+        return diff !== 0 ? diff : b.id - a.id // id tie-breaker
+      }
+      if (sort === 'oldest') {
+        const diff = Date.parse(a.uploadedAt) - Date.parse(b.uploadedAt)
+        return diff !== 0 ? diff : a.id - b.id
+      }
+      if (sort === 'title_asc') {
+        const diff = (a.title ?? a.name ?? '').localeCompare(b.title ?? b.name ?? '', 'vi')
+        return diff !== 0 ? diff : a.id - b.id
+      }
+      if (sort === 'title_desc') {
+        const diff = (b.title ?? b.name ?? '').localeCompare(a.title ?? a.name ?? '', 'vi')
+        return diff !== 0 ? diff : b.id - a.id
+      }
+      return 0
+    })
+
+    // ── Pagination ──
+    const total = result.length
+    const offset = (pageNum - 1) * limit
+    const items = result.slice(offset, offset + limit)
+
+    return ok<Paginated<CourseDocument>>({ items, total, offset, limit })
+  }),
+
+  // GET /api/library/documents/:id — Chi tiết một tài liệu (allowlist DTO, READY + VISIBLE).
+  // Trạng thái khác hoặc id không tồn tại → 404 (không lộ lifecycle nội bộ).
+  http.get(new RegExp(`${API}/library/documents/(\\d+)$`), async ({ request }) => {
+    await delay(150)
+    const match = request.url.match(/\/library\/documents\/(\d+)$/)
+    const docId = Number(match?.[1])
+
+    // Tìm trong toàn bộ library dataset
+    const allDocs: CourseDocument[] = [
+      ...mockDocuments,
+      { id: 101, name: 'Nhập môn học máy.pdf', fileType: 'pdf', courseId: 'ML101', courseName: 'Học Máy & AI', sizeBytes: 2_400_000, status: 'ready', hidden: false, uploadedBy: 'Nguyễn Thị Phượng', uploadedAt: new Date(Date.now() - 5 * 86_400_000).toISOString(), currentVersion: 2, title: 'Nhập môn học máy – Lý thuyết & Thực hành', author: 'Nguyễn Thị Phượng', docType: 'Giáo trình', publishYear: 2024 },
+      { id: 102, name: 'Slide Deep Learning.txt', fileType: 'txt', courseId: 'DL201', courseName: 'Deep Learning', sizeBytes: 8_200_000, status: 'ready', hidden: false, uploadedBy: 'Trần Quốc Hùng', uploadedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(), currentVersion: 1, title: 'Kiến trúc mạng nơ-ron sâu', author: 'Trần Quốc Hùng', docType: 'Bài giảng / Slide', publishYear: 2025 },
+      { id: 103, name: 'NLP Fundamentals.pdf', fileType: 'pdf', courseId: 'NLP301', courseName: 'NLP', sizeBytes: 3_100_000, status: 'ready', hidden: false, uploadedBy: 'Võ Thị Lan', uploadedAt: new Date(Date.now() - 10 * 86_400_000).toISOString(), currentVersion: 1, title: 'Xử lý ngôn ngữ tự nhiên – Nền tảng', author: 'Võ Thị Lan', docType: 'Giáo trình', publishYear: 2024 },
+      { id: 104, name: 'Bài tập lớn AI.docx', fileType: 'docx', courseId: 'CS101', courseName: 'Trí tuệ nhân tạo', sizeBytes: 512_000, status: 'ready', hidden: false, uploadedBy: 'Nguyễn Thị Phượng', uploadedAt: new Date(Date.now() - 1 * 86_400_000).toISOString(), currentVersion: 1, title: 'Đề bài tập lớn môn Trí tuệ nhân tạo', author: 'Bộ môn CNTT', docType: 'Đề thi / Đáp án', publishYear: 2025 },
+      { id: 105, name: 'CV Vision Slides.txt', fileType: 'txt', courseId: 'CV401', courseName: 'Computer Vision', sizeBytes: 5_600_000, status: 'ready', hidden: false, uploadedBy: 'Nguyễn Thị Phượng', uploadedAt: new Date(Date.now() - 7 * 86_400_000).toISOString(), currentVersion: 1, title: 'Computer Vision – Object Detection & Segmentation', author: 'Nguyễn Thị Phượng', docType: 'Bài giảng / Slide', publishYear: 2025 },
+      { id: 106, name: 'Data Science Handbook.pdf', fileType: 'pdf', courseId: 'DS101', courseName: 'Khoa học Dữ liệu', sizeBytes: 4_800_000, status: 'ready', hidden: false, uploadedBy: 'Trần Quốc Hùng', uploadedAt: new Date(Date.now() - 15 * 86_400_000).toISOString(), currentVersion: 3, title: 'Khoa học Dữ liệu từ A đến Z', author: 'Trần Quốc Hùng', docType: 'Giáo trình', publishYear: 2023 },
+    ]
+    const doc = allDocs.find(d => d.id === docId)
+    // 404 cho cả id không tồn tại lẫn không đủ điều kiện (không lộ lifecycle)
+    if (!doc || doc.hidden || doc.status !== 'ready') {
+      return fail(404, 'DOCUMENT_NOT_FOUND', 'Tài liệu không tồn tại hoặc không khả dụng.')
+    }
+    return ok<CourseDocument>(doc)
+  }),
+
+  // GET /api/library/documents/:id/source — Stream original as attachment.
+  // Record không đủ điều kiện → 404. Record hợp lệ nhưng original bị thiếu → 409 ORIGINAL_SOURCE_UNAVAILABLE.
+  http.get(new RegExp(`${API}/library/documents/(\\d+)/source$`), async ({ request }) => {
+    await delay(200)
+    const match = request.url.match(/\/library\/documents\/(\d+)\/source$/)
+    const docId = Number(match?.[1])
+    const LIBRARY_IDS = new Set([1, 101, 102, 103, 104, 105, 106])
+    // 404: id không tồn tại hoặc không đủ điều kiện
+    if (!LIBRARY_IDS.has(docId)) {
+      return fail(404, 'DOCUMENT_NOT_FOUND', 'Tài liệu không tồn tại hoặc không khả dụng.')
+    }
+    // 409: record hợp lệ nhưng original bị thiếu (mock: id 104 = DOCX không có file gốc)
+    if (docId === 104) {
+      return HttpResponse.json(
+        { success: false, message: 'File gốc hiện không khả dụng.', errorCode: 'ORIGINAL_SOURCE_UNAVAILABLE' },
+        { status: 409 },
+      )
+    }
+    // Stream mock PDF as attachment
+    const { MOCK_PDF_BASE64 } = await import('./mockPdf')
+    const pdfBytes = Uint8Array.from(atob(MOCK_PDF_BASE64), c => c.charCodeAt(0))
+    return new HttpResponse(pdfBytes, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="document-${docId}.pdf"`,
+      },
+    })
+  }),
+
+  // GET /api/library/documents/:id/preview — Inline preview.
+  // PDF → stream original inline. DOCX → stream generated PDF khi preview READY.
+  // Preview thiếu/pending/failed → 409 (không nới scope library).
+  http.get(new RegExp(`${API}/library/documents/(\\d+)/preview$`), async ({ request }) => {
+    await delay(200)
+    const match = request.url.match(/\/library\/documents\/(\d+)\/preview$/)
+    const docId = Number(match?.[1])
+    const LIBRARY_IDS = new Set([1, 101, 102, 103, 104, 105, 106])
+    if (!LIBRARY_IDS.has(docId)) {
+      return fail(404, 'DOCUMENT_NOT_FOUND', 'Tài liệu không tồn tại hoặc không khả dụng.')
+    }
+    // 409: preview pending/failed (mock: PPTX id 102, 105 chưa có preview PDF)
+    if (docId === 102 || docId === 105) {
+      return HttpResponse.json(
+        { success: false, message: 'Preview chưa sẵn sàng hoặc đang xử lý.', errorCode: 'PREVIEW_NOT_READY' },
+        { status: 409 },
+      )
+    }
+    // Stream mock PDF inline (Content-Disposition: inline)
+    const { MOCK_PDF_BASE64 } = await import('./mockPdf')
+    const pdfBytes = Uint8Array.from(atob(MOCK_PDF_BASE64), c => c.charCodeAt(0))
+    return new HttpResponse(pdfBytes, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="preview-${docId}.pdf"`,
+      },
+    })
+  }),
+
   // POST /api/documents — upload tài liệu mới (multipart/form-data)
   http.post(`${API}/documents`, async ({ request }) => {
     await delay(800)

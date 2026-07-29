@@ -30,6 +30,7 @@ const DocumentsPage = lazy(() => import('@/features/documents/pages/DocumentsPag
 const TeacherManagementPage = lazy(() => import('@/features/admin/pages/TeacherManagementPage').then((m) => ({ default: m.TeacherManagementPage })))
 const StudentManagementPage = lazy(() => import('@/features/admin/pages/StudentManagementPage').then((m) => ({ default: m.StudentManagementPage })))
 const FinOpsPage = lazy(() => import('@/features/admin/pages/FinOpsPage').then((m) => ({ default: m.FinOpsPage })))
+const LibraryPage = lazy(() => import('@/features/library/pages/LibraryPage').then((m) => ({ default: m.LibraryPage })))
 
 function RoleRedirector() {
   const { status, isAuthenticated, user } = useAuth()
@@ -121,6 +122,20 @@ export const router = createBrowserRouter([
     ),
   },
 
+  // Thư viện học liệu chung (read-only) cho sinh viên
+  {
+    path: '/student/library',
+    element: (
+      <ProtectedRoute allowedRoles={['STUDENT'] as Role[]}>
+        <ClientLayout>
+          <Suspense fallback={<div className="p-6 text-slate-500">Đang tải…</div>}>
+            <LibraryPage />
+          </Suspense>
+        </ClientLayout>
+      </ProtectedRoute>
+    ),
+  },
+
   // Hồ sơ cá nhân sinh viên (UC 4, 5, 6)
   {
     path: '/student/profile',
@@ -183,15 +198,28 @@ export const router = createBrowserRouter([
     ),
   },
 
-
-  // Tải lên & quản lý học liệu (UC 13–18)
+  // Tải lên & quản lý học liệu riêng (UC 13–18) — TEACHER thấy TL của mình, ADMIN thấy tất cả
   {
     path: '/dashboard/documents',
     element: (
-      <ProtectedRoute allowedRoles={['TEACHER'] as Role[]}>
+      <ProtectedRoute allowedRoles={['TEACHER', 'ADMIN'] as Role[]}>
         <DashboardLayout>
           <Suspense fallback={<div className="p-8 text-slate-400">Đang tải…</div>}>
             <DocumentsPage />
+          </Suspense>
+        </DashboardLayout>
+      </ProtectedRoute>
+    ),
+  },
+
+  // Thư viện học liệu chung (read-only) cho TEACHER & ADMIN
+  {
+    path: '/dashboard/library',
+    element: (
+      <ProtectedRoute allowedRoles={['TEACHER', 'ADMIN'] as Role[]}>
+        <DashboardLayout>
+          <Suspense fallback={<div className="p-8 text-slate-400">Đang tải…</div>}>
+            <LibraryPage />
           </Suspense>
         </DashboardLayout>
       </ProtectedRoute>

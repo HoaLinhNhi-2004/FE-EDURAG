@@ -37,7 +37,7 @@ import { useAuth } from '@/store/auth'
 const NAV_ITEMS = [
   { label: 'Hỏi đáp AI', to: '/student', Icon: ChatBubbleIcon },
   { label: 'Lịch sử chat', to: '/student/history', Icon: ClockIcon },
-  { label: 'Xem tài liệu', to: '/student/documents', Icon: DocumentIcon },
+  { label: 'Thư viện học liệu', to: '/student/library', Icon: DocumentIcon },
 ] as const
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -67,16 +67,16 @@ function Sidebar({ pathname }: SidebarProps) {
   }
 
   return (
-    <aside className="hidden md:flex flex-col w-52 shrink-0 min-h-screen bg-white border-r border-slate-200">
+    <aside className="hidden md:flex flex-col w-52 shrink-0 h-full bg-white border-r border-slate-200">
 
       {/* ── Logo ── */}
-      <div className="flex items-center gap-2 px-4 py-5 select-none">
+      <div className="flex items-center gap-2 px-4 py-5 select-none shrink-0">
         <BrandMark />
         <span className="text-sm font-bold text-slate-900 tracking-tight">EduRAG</span>
       </div>
 
       {/* ── Nav ── */}
-      <nav className="flex-1 flex flex-col gap-1 px-2 mt-2">
+      <nav className="flex-1 flex flex-col gap-1 px-2 mt-2 overflow-y-auto">
         {NAV_ITEMS.map(({ label, to, Icon }) => {
           // "Hỏi đáp AI" chỉ active khi đúng /student, còn lại startsWith
           const isActive =
@@ -105,7 +105,7 @@ function Sidebar({ pathname }: SidebarProps) {
       </nav>
 
       {/* ── User profile ── */}
-      <div className="relative px-2 pb-4">
+      <div className="relative px-2 pb-4 shrink-0">
         {/* Dropdown menu */}
         {menuOpen && (
           <div className="absolute bottom-full left-0 right-0 mb-1 mx-2 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-20">
@@ -177,19 +177,19 @@ export default function ClientLayout({ children, rightPanel }: ClientLayoutProps
   const { pathname } = useLocation()
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar pathname={pathname} />
 
       {/* Main + optional right panel */}
-      <div className="flex flex-1 min-w-0">
+      <div className="flex flex-1 min-w-0 h-full overflow-hidden">
         {/* Content area */}
-        <main className="flex-1 min-w-0 overflow-auto">
+        <main className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
           {children}
         </main>
 
         {/* Right panel (e.g. Nguồn RAG) */}
         {rightPanel && (
-          <aside className="hidden lg:block w-72 xl:w-80 shrink-0 border-l border-slate-200 bg-white overflow-y-auto">
+          <aside className="hidden lg:block w-72 xl:w-80 shrink-0 h-full border-l border-slate-200 bg-white overflow-y-auto">
             {rightPanel}
           </aside>
         )}

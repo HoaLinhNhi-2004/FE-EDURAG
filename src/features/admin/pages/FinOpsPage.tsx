@@ -1,23 +1,51 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getAccessToken } from '@/utils/token'
+import { PageHeader } from '@/components/ui'
+
+const API = import.meta.env.VITE_API_BASE_URL
+
+// Shape từ BE: GET /api/admin/dashboard/summary
+interface UsageTotals {
+  calls: number
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+interface UsageBreakdown {
+  provider: string
+  model: string
+  status: string
+  currency: string
+  calls: number
+  totalTokens: number
+  estimatedCost: number | null
+}
+interface DashboardSummary {
+  usage: {
+    totals: UsageTotals
+    breakdown: UsageBreakdown[]
+  }
+  chat: { sessions: number; messages: number; citations: number }
+}
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function IconZap({ className }: { className?: string }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
 }
 function IconCpu({ className }: { className?: string }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" /><line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" /></svg>
 }
 function IconDollar({ className }: { className?: string }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
 }
 function IconWallet({ className }: { className?: string }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 12V8a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="M20 12h-4a2 2 0 0 0 0 4h4"/></svg>
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 12V8a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" /><path d="M20 12h-4a2 2 0 0 0 0 4h4" /></svg>
 }
 function IconSettings({ className }: { className?: string }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
 }
 function IconEdit({ className }: { className?: string }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -49,7 +77,7 @@ function EditBudgetModal({ config, onClose, onSave }: EditBudgetModalProps) {
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-base font-bold text-slate-900">Cấu hình ngân sách</h2>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
         </div>
         <div className="p-6 flex flex-col gap-4">
@@ -102,6 +130,17 @@ function EditBudgetModal({ config, onClose, onSave }: EditBudgetModalProps) {
   )
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return String(n)
+}
+function fmtCost(n: number | null | undefined): string {
+  if (n == null) return '$0.00'
+  return '$' + n.toFixed(2)
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export function FinOpsPage() {
   const [period, setPeriod] = useState<Period>('month')
@@ -113,88 +152,137 @@ export function FinOpsPage() {
     action: 'Khóa API',
   })
 
-  // Token stats theo period
-  const STATS: Record<Period, { prompt: string; completion: string; cost: string; label: string }> = {
-    day:   { prompt: '13K',   completion: '4K',    cost: '$0.18', label: 'Hôm nay' },
-    month: { prompt: '394K',  completion: '111K',  cost: '$4.98', label: 'Tháng 7/2026' },
-    year:  { prompt: '3.2M',  completion: '890K',  cost: '$39.2', label: 'Năm 2026' },
-  }
+  // ── Fetch từ BE thật: GET /api/admin/dashboard/summary ──────────────────────
+  const [summary, setSummary] = useState<DashboardSummary | null>(null)
+  const [loadingSummary, setLoadingSummary] = useState(true)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
 
-  const stat = STATS[period]
-  const usedAmount = 4.98
-  const usedPct = Math.round((usedAmount / budget.limit) * 100)
-  const remaining = (budget.limit - usedAmount).toFixed(2)
+  useEffect(() => {
+    const tok = getAccessToken()
+    setLoadingSummary(true)
+    setSummaryError(null)
+
+    const now = new Date()
+    let fromDate: Date | null = null
+    if (period === 'day') {
+      fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    } else if (period === 'month') {
+      fromDate = new Date(now.getFullYear(), now.getMonth(), 1)
+    } else if (period === 'year') {
+      fromDate = new Date(now.getFullYear(), 0, 1)
+    }
+
+    const query = fromDate ? `?from=${encodeURIComponent(fromDate.toISOString())}` : ''
+
+    fetch(`${API}/admin/dashboard/summary${query}`, {
+      headers: { Authorization: `Bearer ${tok}` },
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success) setSummary(j.data as DashboardSummary)
+        else setSummaryError(j.message ?? 'Không tải được thống kê.')
+      })
+      .catch(() => setSummaryError('Lỗi kết nối. Không tải được thống kê.'))
+      .finally(() => setLoadingSummary(false))
+  }, [period])
+
+  // Lấy số liệu từ BE
+  const totals = summary?.usage?.totals
+  const breakdown = summary?.usage?.breakdown ?? []
+
+  const periodLabel = period === 'day' ? 'Hôm nay' : period === 'month' ? 'Tháng này' : 'Năm nay'
+
+  // Tổng chi phí ước tính từ breakdown
+  const estimatedCost = breakdown.reduce(
+    (sum, r) => sum + (r.estimatedCost ?? 0),
+    0
+  )
+
+  const usedAmount = estimatedCost
+  const usedPct = budget.limit > 0 ? Math.min(100, Math.round((usedAmount / budget.limit) * 100)) : 0
+  const remaining = Math.max(0, budget.limit - usedAmount).toFixed(2)
   const remainingPct = 100 - usedPct
 
-  // Bar color based on percent
   const barColor =
     usedPct >= budget.hardLimit ? 'bg-red-500' :
-    usedPct >= budget.warnAt   ? 'bg-amber-400' :
-    'bg-indigo-500'
+      usedPct >= budget.warnAt ? 'bg-amber-400' :
+        'bg-indigo-500'
 
-  const remainColor =
-    usedPct >= budget.warnAt ? 'text-amber-500' : 'text-emerald-600'
+  const remainColor = usedPct >= budget.warnAt ? 'text-amber-500' : 'text-emerald-600'
 
   const PERIODS: { id: Period; label: string }[] = [
-    { id: 'day',   label: 'Ngày' },
+    { id: 'day', label: 'Ngày' },
     { id: 'month', label: 'Tháng' },
-    { id: 'year',  label: 'Năm' },
+    { id: 'year', label: 'Năm' },
   ]
 
-  return (
-    <div className="flex flex-col min-h-full bg-slate-50 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">FinOps & Quản lý Token LLM</h1>
-          <p className="text-sm text-slate-500 mt-1">Thống kê token tiêu thụ và quản lý ngân sách API</p>
-        </div>
-        {/* Period selector */}
-        <div className="flex items-center bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-          {PERIODS.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setPeriod(p.id)}
-              className={`px-4 py-2 text-sm font-semibold transition-colors ${
-                period === p.id
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
+  const currentMonthYear = `tháng ${new Date().getMonth() + 1}/${new Date().getFullYear()}`
 
-      {/* Stat cards */}
+  return (
+    <div className="flex flex-col h-full min-h-0 flex-1 overflow-hidden bg-slate-50">
+      <PageHeader
+        title="FinOps & Quản lý Token LLM"
+        subtitle="Thống kê token tiêu thụ và quản lý ngân sách API"
+        actions={
+          <div className="flex items-center bg-slate-100 border border-slate-200 rounded-lg p-0.5 overflow-hidden">
+            {PERIODS.map(p => (
+              <button
+                key={p.id}
+                onClick={() => setPeriod(p.id)}
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                  period === p.id
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
+      <div className="flex-1 min-h-0 overflow-y-auto p-6">
+
+      {summaryError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          {summaryError}
+        </div>
+      )}
+
+      {/* Stat cards — data thật từ BE */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {/* Prompt tokens */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center mb-3">
             <IconZap className="w-4 h-4 text-indigo-600" />
           </div>
-          <p className="text-[22px] font-bold text-slate-900">{stat.prompt}</p>
+          <p className="text-[22px] font-bold text-slate-900">
+            {loadingSummary ? '...' : fmtTokens(totals?.promptTokens ?? 0)}
+          </p>
           <p className="text-xs text-slate-500 mt-0.5">Tổng Prompt Tokens</p>
-          <p className="text-xs text-indigo-500 font-semibold mt-1.5">{stat.label}</p>
+          <p className="text-xs text-indigo-500 font-semibold mt-1.5">{periodLabel}</p>
         </div>
         {/* Completion tokens */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center mb-3">
             <IconCpu className="w-4 h-4 text-slate-500" />
           </div>
-          <p className="text-[22px] font-bold text-slate-900">{stat.completion}</p>
+          <p className="text-[22px] font-bold text-slate-900">
+            {loadingSummary ? '...' : fmtTokens(totals?.completionTokens ?? 0)}
+          </p>
           <p className="text-xs text-slate-500 mt-0.5">Tổng Completion Tokens</p>
-          <p className="text-xs text-indigo-500 font-semibold mt-1.5">{stat.label}</p>
+          <p className="text-xs text-indigo-500 font-semibold mt-1.5">{periodLabel}</p>
         </div>
         {/* Chi phí thực tế */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center mb-3">
             <IconDollar className="w-4 h-4 text-emerald-600" />
           </div>
-          <p className="text-[22px] font-bold text-slate-900">{stat.cost}</p>
-          <p className="text-xs text-slate-500 mt-0.5">Chi phí thực tế</p>
-          <p className="text-xs text-emerald-600 font-semibold mt-1.5">{stat.label}</p>
+          <p className="text-[22px] font-bold text-slate-900">
+            {loadingSummary ? '...' : fmtCost(estimatedCost)}
+          </p>
+          <p className="text-xs text-slate-500 mt-0.5">Chi phí ước tính</p>
+          <p className="text-xs text-emerald-600 font-semibold mt-1.5">{totals?.calls ?? 0} LLM calls</p>
         </div>
         {/* Ngân sách còn lại */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
@@ -211,7 +299,7 @@ export function FinOpsPage() {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         {/* Card header */}
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-base font-bold text-slate-800">Ngân sách tháng 7/2026</h2>
+          <h2 className="text-base font-bold text-slate-800">Ngân sách {currentMonthYear}</h2>
           <div className="flex items-center gap-3">
             <span className={`text-lg font-bold ${usedPct >= budget.warnAt ? 'text-amber-500' : 'text-indigo-600'}`}>
               {usedPct}%
@@ -281,6 +369,7 @@ export function FinOpsPage() {
           onSave={next => setBudget(next)}
         />
       )}
+      </div>
     </div>
   )
 }

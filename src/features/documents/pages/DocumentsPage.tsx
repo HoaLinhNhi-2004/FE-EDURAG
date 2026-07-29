@@ -2,9 +2,11 @@ import { useState, useRef, useCallback, useEffect, type DragEvent, type ChangeEv
 import { useAuth } from '@/store/auth'
 import { getAccessToken } from '@/utils/token'
 import type { CourseDocument } from '@/types'
+import { PageHeader, Alert } from '@/components/ui'
 import {
   CloudUploadIcon, XIcon, UploadIcon, SearchIcon, TrashIcon,
   EyeIcon, EyeOffIcon, DownloadIcon, FileTextIcon,
+  GridIcon, ListIcon, ImageIcon,
 } from '@/components/ui/icons'
 
 const API = import.meta.env.VITE_API_BASE_URL
@@ -52,23 +54,25 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
 function mapBackendDocument(d: any): CourseDocument {
   const courseId = d.courseId ?? 'CS101'
   const courseOpt = COURSES.find(c => c.id === courseId)
+  const docTitle = d.title ?? d.originalFilename ?? d.original_filename ?? 'Tài liệu môn học'
+  const docName = d.originalFilename ?? d.original_filename ?? d.title ?? 'Tài liệu'
   return {
     id: d.id,
-    name: d.originalFilename ?? d.original_filename ?? '',
+    name: docName,
     fileType: (d.fileType ?? d.file_type ?? 'pdf').toLowerCase() as any,
     courseId: courseId,
     courseName: courseOpt ? courseOpt.name : 'Môn học chung',
-    sizeBytes: d.fileSizeBytes ?? d.file_size_bytes ?? 0,
+    sizeBytes: d.fileSize ?? d.fileSizeBytes ?? d.file_size_bytes ?? 0,
     status: (d.processingStatus ?? d.processing_status ?? 'ready').toLowerCase() as any,
     hidden: (d.visibilityStatus ?? d.visibility_status) === 'HIDDEN',
     uploadedBy: String(d.uploadedBy ?? d.uploaded_by ?? ''),
     uploadedAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
     currentVersion: d.currentVersion ?? 1,
-    title: d.title,
-    author: d.author,
-    docType: d.docType,
+    title: docTitle,
+    author: d.author ?? 'Giảng viên',
+    docType: d.docType ?? (d.fileType ? `${d.fileType} Document` : 'Tài liệu'),
     publishYear: d.publishYear,
-    abstract: d.abstract,
+    abstract: d.description ?? d.abstract,
   }
 }
 
@@ -119,7 +123,8 @@ function UploadModal({ onClose, onUploaded }: UploadModalProps) {
       if (author.trim()) fd.append('author', author.trim())
       if (docType) fd.append('docType', docType)
       if (publishYear.trim()) fd.append('publishYear', publishYear.trim())
-      if (abstract.trim()) fd.append('abstract', abstract.trim())
+      // BE nhận 'description' (không phải 'abstract') theo schema document-service.js
+      if (abstract.trim()) fd.append('description', abstract.trim())
       
       const res = await fetch(`${API}/documents`, {
         method: 'POST',
@@ -127,7 +132,9 @@ function UploadModal({ onClose, onUploaded }: UploadModalProps) {
         body: fd,
       })
       const json = await res.json()
+      // BE trả 202 khi upload thành công; 503 khi RAG dispatch thất bại
       if (!res.ok) { setError(json.message ?? 'Upload thất bại.'); return }
+      // BE trả { document, job, previewJob } trong data
       onUploaded(mapBackendDocument(json.data.document))
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.')
@@ -306,49 +313,110 @@ function DeleteConfirmDialog({ name, onConfirm, onCancel }: { name: string; onCo
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
+const CARD_PALETTES = [
+  { bg: 'bg-gradient-to-br from-indigo-50/90 via-purple-50/50 to-indigo-50/20', text: 'text-indigo-600' },
+  { bg: 'bg-gradient-to-br from-sky-50/90 via-blue-50/50 to-sky-50/20', text: 'text-sky-600' },
+  { bg: 'bg-gradient-to-br from-teal-50/90 via-cyan-50/50 to-teal-50/20', text: 'text-teal-600' },
+  { bg: 'bg-gradient-to-br from-purple-50/90 via-fuchsia-50/50 to-purple-50/20', text: 'text-purple-600' },
+  { bg: 'bg-gradient-to-br from-rose-50/90 via-pink-50/50 to-rose-50/20', text: 'text-rose-600' },
+]
+
 export function DocumentsPage() {
-  useAuth() // ensure authenticated context
+  const { user } = useAuth()
+  const canManage = user?.role === 'TEACHER' || user?.role === 'ADMIN'
+
   const [docs, setDocs] = useState<CourseDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'SLIDE' | 'TEXTBOOK' | 'LECTURE'>('ALL')
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [showUpload, setShowUpload] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<CourseDocument | null>(null)
 
   useEffect(() => {
     const tok = getAccessToken()
-    fetch(`${API}/documents`, { headers: { Authorization: `Bearer ${tok}` } })
+    const endpoint = canManage ? `${API}/documents` : `${API}/library/documents`
+    fetch(endpoint, { headers: { Authorization: `Bearer ${tok}` } })
       .then((r) => r.json())
       .then((j) => {
-        const rawDocs = j.data?.documents ?? []
-        setDocs(rawDocs.map(mapBackendDocument))
+        // BE trả { documents[], total, page, limit } hoặc { items[], ... } trong data
+        const rawDocs: any[] = j.data?.documents ?? j.data?.items ?? (Array.isArray(j.data) ? j.data : [])
+        const mapped = rawDocs.map(mapBackendDocument)
+        setDocs(canManage ? mapped : mapped.filter((d) => !d.hidden))
       })
+      .catch(() => { /* ignore network errors on mount */ })
       .finally(() => setLoading(false))
-  }, [])
+  }, [canManage])
+
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+
+  function handleDownload(doc: CourseDocument) {
+    const tok = getAccessToken()
+    const fileUrl = canManage
+      ? `${API}/documents/${doc.id}/file`
+      : `${API}/library/documents/${doc.id}/source`
+    
+    setDownloadError(null)
+    fetch(fileUrl, { headers: { Authorization: `Bearer ${tok}` } })
+      .then((res) => {
+        if (!res.ok) throw new Error('Download failed')
+        return res.blob()
+      })
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = doc.title ?? doc.name ?? 'document'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(url)
+      })
+      .catch(() => setDownloadError('Không tải được file tài liệu. Vui lòng thử lại sau.'))
+  }
+
+  const slideCount = docs.filter(d => (d.docType ?? '').toLowerCase().includes('slide') || d.fileType === 'pptx').length
+  const textbookCount = docs.filter(d => (d.docType ?? '').toLowerCase().includes('giáo trình')).length
+  const lectureCount = docs.filter(d => (d.docType ?? '').toLowerCase().includes('bài giảng')).length
 
   const filtered = docs.filter((d) => {
     const q = search.toLowerCase()
-    return d.name.toLowerCase().includes(q) || d.courseName.toLowerCase().includes(q) || (d.docType ?? '').toLowerCase().includes(q) || (d.author ?? '').toLowerCase().includes(q)
+    const matchSearch = d.name.toLowerCase().includes(q) || d.courseName.toLowerCase().includes(q) || (d.docType ?? '').toLowerCase().includes(q) || (d.author ?? '').toLowerCase().includes(q) || (d.title ?? '').toLowerCase().includes(q)
+    if (!matchSearch) return false
+
+    if (selectedCategory === 'SLIDE') {
+      return (d.docType ?? '').toLowerCase().includes('slide') || d.fileType === 'pptx'
+    }
+    if (selectedCategory === 'TEXTBOOK') {
+      return (d.docType ?? '').toLowerCase().includes('giáo trình')
+    }
+    if (selectedCategory === 'LECTURE') {
+      return (d.docType ?? '').toLowerCase().includes('bài giảng')
+    }
+    return true
   })
 
   const activeCount = docs.filter((d) => !d.hidden).length
   const hiddenCount = docs.filter((d) => d.hidden).length
 
   async function toggleVisibility(doc: CourseDocument) {
+    if (!canManage) return
     const tok = getAccessToken()
     const action = doc.hidden ? 'unhide' : 'hide'
     const res = await fetch(`${API}/documents/${doc.id}/${action}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${tok}` }
+      headers: { Authorization: `Bearer ${tok}` },
     })
     const j = await res.json()
     if (res.ok) {
+      // BE trả 202 với { document, job } trong data
       const updatedDoc = mapBackendDocument(j.data.document)
       setDocs((prev) => prev.map((d) => (d.id === doc.id ? updatedDoc : d)))
     }
   }
 
   async function confirmDelete() {
-    if (!deleteTarget) return
+    if (!deleteTarget || !canManage) return
     const tok = getAccessToken()
     const res = await fetch(`${API}/documents/${deleteTarget.id}`, {
       method: 'DELETE',
@@ -365,53 +433,224 @@ export function DocumentsPage() {
   }
 
   return (
-    <>
+    <div className="flex flex-col h-full min-h-0 flex-1 overflow-hidden bg-slate-50">
       <style>{`
         @keyframes modal-in { from { opacity:0; transform:scale(.95) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
         .animate-modal-in { animation: modal-in .2s ease-out; }
       `}</style>
 
-      <div className="p-8 max-w-6xl mx-auto flex flex-col gap-6 min-h-screen">
+      <PageHeader
+        title={canManage ? 'Quản lý Học liệu' : 'Thư viện Tài liệu'}
+        subtitle={canManage ? 'Tải lên, ẩn/hiện và xóa tài liệu môn học' : 'Danh sách tài liệu học tập & tham khảo môn học'}
+        actions={
+          canManage ? (
+            <button
+              id="btn-upload-doc"
+              onClick={() => setShowUpload(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition-colors"
+            >
+              <UploadIcon width={14} height={14} />
+              + Tải lên tài liệu
+            </button>
+          ) : undefined
+        }
+      />
 
-        {/* ── Header ── */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Quản lý Học liệu</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Tải lên, ẩn/hiện và xóa tài liệu môn học</p>
+      <div className="flex-1 min-h-0 overflow-y-auto p-6">
+        <div className="max-w-6xl mx-auto flex flex-col gap-6">
+
+        {downloadError && (
+          <Alert variant="error" className="flex items-center justify-between">
+            <span>{downloadError}</span>
+            <button onClick={() => setDownloadError(null)} className="ml-4 font-bold text-red-600 hover:text-red-800 text-xs">✕</button>
+          </Alert>
+        )}
+
+        {/* ── Toolbar: Search & Filter Pills & View Mode ── */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* Search Box */}
+          <div className="relative w-full sm:w-72">
+            <SearchIcon width={16} height={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm kiếm tài liệu..."
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 shadow-xs transition-all"
+            />
           </div>
-          <button
-            id="btn-upload-doc"
-            onClick={() => setShowUpload(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow transition-colors"
-          >
-            <UploadIcon width={16} height={16} />
-            + Tải lên tài liệu
-          </button>
+
+          {/* Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+            <button
+              onClick={() => setSelectedCategory('ALL')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                selectedCategory === 'ALL'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              Tất cả ({docs.length})
+            </button>
+            <button
+              onClick={() => setSelectedCategory('SLIDE')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                selectedCategory === 'SLIDE'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <span>🖼️</span> Slide bài giảng
+              <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${selectedCategory === 'SLIDE' ? 'bg-white/30 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                {slideCount}
+              </span>
+            </button>
+            <button
+              onClick={() => setSelectedCategory('TEXTBOOK')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                selectedCategory === 'TEXTBOOK'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <span>📖</span> Giáo trình
+              <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${selectedCategory === 'TEXTBOOK' ? 'bg-white/30 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                {textbookCount}
+              </span>
+            </button>
+            <button
+              onClick={() => setSelectedCategory('LECTURE')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                selectedCategory === 'LECTURE'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <span>📄</span> Bài giảng
+              <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${selectedCategory === 'LECTURE' ? 'bg-white/30 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                {lectureCount}
+              </span>
+            </button>
+
+            {/* View Switcher */}
+            <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 ml-auto shadow-xs">
+              <button
+                onClick={() => setViewMode('grid')}
+                title="Dạng thẻ"
+                className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  viewMode === 'grid' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-slate-700'
+                }`}
+              >
+                <GridIcon width={15} height={15} />
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                title="Dạng bảng"
+                className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  viewMode === 'table' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-slate-700'
+                }`}
+              >
+                <ListIcon width={15} height={15} />
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* ── Search ── */}
-        <div className="relative">
-          <SearchIcon width={16} height={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm kiếm tài liệu..."
-            className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 shadow-sm"
-          />
-        </div>
+        {/* ── Content View (Grid or Table) ── */}
+        {loading ? (
+          <div className="flex items-center justify-center py-24 bg-white rounded-2xl border border-slate-200 shadow-xs">
+            <span className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" style={{ borderWidth: 3 }} />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-3 bg-white rounded-2xl border border-slate-200 shadow-xs text-slate-400">
+            <FileTextIcon width={40} height={40} />
+            <p className="text-sm">{search ? 'Không tìm thấy tài liệu phù hợp' : 'Chưa có tài liệu nào trong thư viện.'}</p>
+          </div>
+        ) : viewMode === 'grid' ? (
+          /* ── GRID CARD VIEW ── */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filtered.map((doc, idx) => {
+              const palette = CARD_PALETTES[idx % CARD_PALETTES.length]
+              const ext = fileExt(doc.name)
 
-        {/* ── Table ── */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center py-24">
-              <span className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" style={{ borderWidth: 3 }} />
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
-              <FileTextIcon width={40} height={40} />
-              <p className="text-sm">{search ? 'Không tìm thấy tài liệu phù hợp' : 'Chưa có tài liệu nào. Hãy tải lên tài liệu đầu tiên!'}</p>
-            </div>
-          ) : (
+              return (
+                <div
+                  key={doc.id}
+                  className={`group flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden ${doc.hidden ? 'opacity-60' : ''}`}
+                >
+                  {/* Top Pastel Banner */}
+                  <div className={`h-40 p-4 ${palette.bg} flex flex-col justify-between relative border-b border-slate-100/60`}>
+                    {/* Top Row: Format badge */}
+                    <div className="flex items-center justify-between">
+                      <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase bg-white/90 shadow-2xs ${extColor[ext] ?? 'text-slate-600 border-slate-200'}`}>
+                        {ext}
+                      </span>
+                    </div>
+
+                    {/* Center Icon & Category */}
+                    <div className="flex flex-col items-center justify-center my-auto">
+                      <div className="w-12 h-12 bg-white rounded-2xl shadow-xs border border-slate-100 flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform">
+                        <ImageIcon width={22} height={22} className={palette.text} />
+                      </div>
+                      {doc.docType && (
+                        <span className={`text-xs font-semibold mt-2 ${palette.text}`}>
+                          {doc.docType}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card Content Body */}
+                  <div className="p-4 flex flex-col flex-1 justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 line-clamp-1 group-hover:text-indigo-600 transition-colors" title={doc.title ?? doc.name}>
+                        {doc.title ?? doc.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-1">
+                        {doc.courseName}
+                      </p>
+                    </div>
+
+                    {/* Footer Row */}
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+                      <span className="text-[11px] text-slate-400">
+                        Cập nhật {fmtDate(doc.uploadedAt)}
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        {canManage && (
+                          <>
+                            <button
+                              title={doc.hidden ? 'Hiện tài liệu' : 'Ẩn tài liệu'}
+                              onClick={() => toggleVisibility(doc)}
+                              className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                            >
+                              {doc.hidden ? <EyeIcon width={14} height={14} /> : <EyeOffIcon width={14} height={14} />}
+                            </button>
+                            <button
+                              title="Xoá tài liệu"
+                              onClick={() => setDeleteTarget(doc)}
+                              className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                            >
+                              <TrashIcon width={14} height={14} />
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => handleDownload(doc)}
+                          className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:text-indigo-700 transition-colors text-xs ml-1"
+                        >
+                          Tải xuống <DownloadIcon width={13} height={13} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          /* ── TABLE VIEW ── */
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/70">
@@ -470,26 +709,31 @@ export function DocumentsPage() {
                       {/* Actions */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <button
-                            title={doc.hidden ? 'Hiện tài liệu' : 'Ẩn tài liệu'}
-                            onClick={() => toggleVisibility(doc)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                          >
-                            {doc.hidden ? <EyeIcon width={15} height={15} /> : <EyeOffIcon width={15} height={15} />}
-                          </button>
+                          {canManage && (
+                            <button
+                              title={doc.hidden ? 'Hiện tài liệu' : 'Ẩn tài liệu'}
+                              onClick={() => toggleVisibility(doc)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            >
+                              {doc.hidden ? <EyeIcon width={15} height={15} /> : <EyeOffIcon width={15} height={15} />}
+                            </button>
+                          )}
                           <button
                             title="Tải xuống"
+                            onClick={() => handleDownload(doc)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                           >
                             <DownloadIcon width={15} height={15} />
                           </button>
-                          <button
-                            title="Xoá"
-                            onClick={() => setDeleteTarget(doc)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          >
-                            <TrashIcon width={15} height={15} />
-                          </button>
+                          {canManage && (
+                            <button
+                              title="Xoá"
+                              onClick={() => setDeleteTarget(doc)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              <TrashIcon width={15} height={15} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -497,8 +741,8 @@ export function DocumentsPage() {
                 })}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* ── Footer stats ── */}
         {!loading && docs.length > 0 && (
@@ -522,6 +766,7 @@ export function DocumentsPage() {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
-    </>
+      </div>
+    </div>
   )
 }

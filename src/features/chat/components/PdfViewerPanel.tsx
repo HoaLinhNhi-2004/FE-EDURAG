@@ -102,11 +102,11 @@ export function PdfViewerPanel({
     }
   }, [detail.sourceText])
 
-  const fileError = fileQuery.error as ApiError | null
+  const fileError = (fileQuery.error as unknown) as ApiError | null
 
   return (
-    <aside className="flex w-[520px] shrink-0 flex-col border-l border-slate-200 bg-white">
-      <header className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
+    <aside className="flex h-full w-[480px] lg:w-[520px] shrink-0 flex-col border-l border-slate-200 bg-white overflow-hidden">
+      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 bg-white">
         <div className="flex min-w-0 items-center gap-2">
           <FileTextIcon width={18} height={18} className="shrink-0 text-indigo-500" />
           <div className="min-w-0">

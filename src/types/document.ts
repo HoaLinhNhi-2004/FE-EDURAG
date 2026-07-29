@@ -5,7 +5,7 @@ export interface CourseDocument {
   /** Khớp OpenAPI: id tài liệu là integer (cùng kiểu với Citation.documentId). */
   id: number
   name: string
-  fileType: 'pdf' | 'docx' | 'pptx'
+  fileType: 'pdf' | 'docx' | 'pptx' | 'txt'
   courseId: string
   courseName: string
   sizeBytes: number

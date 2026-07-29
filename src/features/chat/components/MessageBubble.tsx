@@ -24,6 +24,8 @@ export function MessageBubble({
   }
 
   const isError = message.status === 'FAILED'
+  // noAnswer=true: câu hỏi ngoài phạm vi tài liệu (BE trả, không có citation)
+  const isNoAnswer = message.noAnswer === true
 
   return (
     <div className="flex gap-3">
@@ -41,11 +43,19 @@ export function MessageBubble({
             'whitespace-pre-wrap rounded-2xl rounded-tl-sm border px-4 py-2.5 text-sm',
             isError
               ? 'border-red-200 bg-red-50 text-red-700'
-              : 'border-slate-200 bg-white text-slate-700',
+              : isNoAnswer
+                ? 'border-amber-200 bg-amber-50 text-amber-800'
+                : 'border-slate-200 bg-white text-slate-700',
           )}
         >
           {message.content}
         </div>
+        {/* Badge hiện khi câu hỏi ngoài phạm vi tài liệu (BE trả noAnswer=true) */}
+        {isNoAnswer && (
+          <p className="mt-1 text-xs text-amber-600 font-medium">
+            ⚠ Ngoài phạm vi tài liệu hiện có
+          </p>
+        )}
         {message.citations && message.citations.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {message.citations.map((c) => (

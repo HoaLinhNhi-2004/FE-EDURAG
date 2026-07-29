@@ -28,6 +28,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   LogOutIcon,
+  DatabaseIcon,
 } from '@/components/ui/icons'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -58,7 +59,8 @@ const TEACHER_NAV: NavGroup[] = [
   {
     heading: 'HỌC LIỆU',
     items: [
-      { label: 'Tải lên tài liệu', to: '/dashboard/documents', Icon: UploadIcon },
+      { label: 'Quản lý học liệu', to: '/dashboard/documents', Icon: UploadIcon },
+      { label: 'Thư viện học liệu', to: '/dashboard/library', Icon: DatabaseIcon },
     ],
   },
   {
@@ -76,6 +78,13 @@ const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: 'Hỏi đáp AI', to: '/dashboard/chat', Icon: ChatBubbleIcon },
       { label: 'Lịch sử chat', to: '/dashboard/history', Icon: ClockIcon },
+    ],
+  },
+  {
+    heading: 'HỌC LIỆU',
+    items: [
+      { label: 'Quản lý học liệu', to: '/dashboard/documents', Icon: UploadIcon },
+      { label: 'Thư viện học liệu', to: '/dashboard/library', Icon: DatabaseIcon },
     ],
   },
   {
@@ -266,7 +275,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar pathname={pathname} />
-      <main className="flex-1 min-w-0 overflow-y-auto">
+      <main className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
         {children}
       </main>
     </div>
