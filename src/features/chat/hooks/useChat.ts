@@ -54,7 +54,9 @@ export function useChat(initialSessionId?: number) {
   const mutation = useMutation({
     mutationFn: async ({ content, optimisticId }: { content: string; optimisticId: string }) => {
       if (sessionId.current == null) {
-        const session = await chatApi.createSession()
+        // Dùng câu hỏi đầu tiên làm tiêu đề phiên (tối đa 60 ký tự)
+        const title = content.length > 60 ? content.slice(0, 57) + '…' : content
+        const session = await chatApi.createSession({ title })
         sessionId.current = session.id
       }
       return chatApi.sendMessage(sessionId.current, {

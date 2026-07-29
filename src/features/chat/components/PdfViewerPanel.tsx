@@ -102,7 +102,7 @@ export function PdfViewerPanel({
     }
   }, [detail.sourceText])
 
-  const fileError = fileQuery.error as ApiError | null
+  const fileError = (fileQuery.error as unknown) as ApiError | null
 
   return (
     <aside className="flex h-full w-[480px] lg:w-[520px] shrink-0 flex-col border-l border-slate-200 bg-white overflow-hidden">

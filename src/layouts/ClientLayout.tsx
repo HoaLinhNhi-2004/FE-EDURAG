@@ -37,7 +37,7 @@ import { useAuth } from '@/store/auth'
 const NAV_ITEMS = [
   { label: 'Hỏi đáp AI', to: '/student', Icon: ChatBubbleIcon },
   { label: 'Lịch sử chat', to: '/student/history', Icon: ClockIcon },
-  { label: 'Xem tài liệu', to: '/student/documents', Icon: DocumentIcon },
+  { label: 'Thư viện học liệu', to: '/student/library', Icon: DocumentIcon },
 ] as const
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

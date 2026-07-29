@@ -28,6 +28,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   LogOutIcon,
+  DatabaseIcon,
 } from '@/components/ui/icons'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -58,7 +59,8 @@ const TEACHER_NAV: NavGroup[] = [
   {
     heading: 'HỌC LIỆU',
     items: [
-      { label: 'Tải lên tài liệu', to: '/dashboard/documents', Icon: UploadIcon },
+      { label: 'Quản lý học liệu', to: '/dashboard/documents', Icon: UploadIcon },
+      { label: 'Thư viện học liệu', to: '/dashboard/library', Icon: DatabaseIcon },
     ],
   },
   {
@@ -76,6 +78,13 @@ const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: 'Hỏi đáp AI', to: '/dashboard/chat', Icon: ChatBubbleIcon },
       { label: 'Lịch sử chat', to: '/dashboard/history', Icon: ClockIcon },
+    ],
+  },
+  {
+    heading: 'HỌC LIỆU',
+    items: [
+      { label: 'Quản lý học liệu', to: '/dashboard/documents', Icon: UploadIcon },
+      { label: 'Thư viện học liệu', to: '/dashboard/library', Icon: DatabaseIcon },
     ],
   },
   {

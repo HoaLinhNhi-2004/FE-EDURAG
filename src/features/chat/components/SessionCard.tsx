@@ -9,22 +9,42 @@ import { formatSessionTime } from '@/utils/datetime'
  */
 export function SessionCard({
   session,
+  index,
   onOpen,
   onDelete,
 }: {
   session: ChatSession
+  /** Số thứ tự hiển thị (1-based). */
+  index?: number
   onOpen: () => void
   onDelete: () => void
 }) {
+  const displayTitle = session.title || 'Cuộc trò chuyện mới'
+
   return (
-    <div className="group relative rounded-xl border border-slate-100 bg-slate-50 transition-colors hover:bg-white hover:shadow-sm">
+    <div className="group relative rounded-xl border border-slate-100 bg-white transition-all hover:shadow-sm hover:border-indigo-100">
       <button type="button" onClick={onOpen} className="flex w-full gap-3 p-4 text-left">
-        <ChatBubbleIcon width={18} height={18} className="mt-0.5 shrink-0 text-indigo-500" />
+        {/* Icon + index badge */}
+        <div className="relative mt-0.5 shrink-0">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500">
+            <ChatBubbleIcon width={18} height={18} />
+          </div>
+          {index != null && (
+            <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-bold text-white leading-none">
+              {index}
+            </span>
+          )}
+        </div>
+
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-slate-800">{session.title}</p>
-          <div className="mt-2 flex items-center gap-4 text-xs text-slate-400">
+          {/* Title — nổi bật */}
+          <p className="truncate text-sm font-semibold text-slate-800 group-hover:text-indigo-700 transition-colors">
+            {displayTitle}
+          </p>
+          {/* Metadata row */}
+          <div className="mt-1.5 flex items-center gap-3 text-xs text-slate-400">
             <span className="flex items-center gap-1">
-              <ClockIcon width={13} height={13} />
+              <ClockIcon width={12} height={12} />
               {formatSessionTime(session.lastMessageAt ?? session.updatedAt)}
             </span>
           </div>
@@ -35,10 +55,11 @@ export function SessionCard({
         type="button"
         onClick={onDelete}
         title="Xóa phiên chat này"
-        className="absolute right-3 top-3 hidden rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 group-hover:block"
+        className="absolute right-3 top-3 hidden rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 group-hover:block transition-colors"
       >
         <TrashIcon width={16} height={16} />
       </button>
     </div>
   )
 }
+
