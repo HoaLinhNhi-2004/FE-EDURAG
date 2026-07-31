@@ -13,6 +13,7 @@ import {
   Input,
   LockIcon,
   MailIcon,
+  PasswordInput,
   UserIcon,
   PhoneIcon,
   DocumentIcon,
@@ -259,9 +260,8 @@ export function RegisterPage() {
         )}
 
         <FormField label="Mật khẩu" htmlFor="password" required error={errors.password?.message}>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             leftIcon={<LockIcon />}
             placeholder="Tối thiểu 8 ký tự"
             invalid={!!errors.password}
@@ -277,9 +277,8 @@ export function RegisterPage() {
           required
           error={errors.confirmPassword?.message}
         >
-          <Input
+          <PasswordInput
             id="confirmPassword"
-            type="password"
             leftIcon={<LockIcon />}
             placeholder="Nhập lại mật khẩu"
             invalid={!!errors.confirmPassword}

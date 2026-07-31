@@ -13,7 +13,7 @@
   - Usage: <DashboardLayout><OverviewPage /></DashboardLayout>
   - Extend: thêm item vào TEACHER_NAV hoặc ADMIN_NAV bên dưới.
 */
-import { useState, type ReactNode, type ComponentType, type SVGProps } from 'react'
+import { useEffect, useState, type ReactNode, type ComponentType, type SVGProps } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import {
@@ -28,6 +28,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   LogOutIcon,
+  MenuIcon,
   DatabaseIcon,
 } from '@/components/ui/icons'
 
@@ -128,7 +129,17 @@ function roleBadge(role: string | undefined): { label: string; className: string
 }
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
-function Sidebar({ pathname }: { pathname: string }) {
+function Sidebar({
+  pathname,
+  className = '',
+  onNavigate,
+}: {
+  pathname: string
+  /** Lớp bố cục do nơi gọi quyết định — cột cố định (md+) hay drawer (màn nhỏ). */
+  className?: string
+  /** Gọi khi chọn một mục — để drawer tự đóng sau khi điều hướng. */
+  onNavigate?: () => void
+}) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -150,7 +161,7 @@ function Sidebar({ pathname }: { pathname: string }) {
   }
 
   return (
-    <aside className="hidden md:flex flex-col w-52 shrink-0 h-screen sticky top-0 bg-white border-r border-slate-200">
+    <aside className={`flex flex-col w-52 shrink-0 h-full bg-white border-r border-slate-200 ${className}`}>
 
       {/* ── Logo + role badge ── */}
       <div className="px-4 pt-5 pb-4 select-none">
@@ -179,6 +190,7 @@ function Sidebar({ pathname }: { pathname: string }) {
                 <Link
                   key={to}
                   to={to}
+                  onClick={onNavigate}
                   className={[
                     'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150',
                     isActive
@@ -215,7 +227,10 @@ function Sidebar({ pathname }: { pathname: string }) {
             </p>
             <Link
               to="/dashboard/profile"
-              onClick={() => setMenuOpen(false)}
+              onClick={() => {
+                setMenuOpen(false)
+                onNavigate?.()
+              }}
               className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <UserIcon width={16} height={16} className="text-slate-500" />
@@ -270,13 +285,51 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { pathname } = useLocation()
+  const [navOpen, setNavOpen] = useState(false)
+
+  // Đổi trang thì đóng drawer — tránh quay lại bằng nút Back mà menu vẫn mở.
+  useEffect(() => {
+    setNavOpen(false)
+  }, [pathname])
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
-      <Sidebar pathname={pathname} />
-      <main className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
-        {children}
-      </main>
+      {/* Sidebar cột cố định — từ md trở lên */}
+      <Sidebar pathname={pathname} className="hidden md:flex" />
+
+      {/* Drawer — dưới md, mở bằng nút hamburger ở thanh trên */}
+      {navOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <button
+            type="button"
+            aria-label="Đóng menu điều hướng"
+            onClick={() => setNavOpen(false)}
+            className="absolute inset-0 h-full w-full cursor-default bg-slate-900/40"
+          />
+          <div className="relative z-10 h-full w-52 shadow-xl">
+            <Sidebar pathname={pathname} onNavigate={() => setNavOpen(false)} />
+          </div>
+        </div>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Thanh trên chỉ có ở màn nhỏ, nơi sidebar bị ẩn */}
+        <header className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+          <button
+            type="button"
+            onClick={() => setNavOpen(true)}
+            aria-label="Mở menu điều hướng"
+            aria-expanded={navOpen}
+            className="-ml-1 rounded-lg p-1.5 text-slate-600 hover:bg-slate-100"
+          >
+            <MenuIcon width={20} height={20} />
+          </button>
+          <BrandMark />
+          <span className="text-sm font-bold tracking-tight text-slate-900">EduRAG</span>
+        </header>
+
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</main>
+      </div>
     </div>
   )
 }

@@ -13,7 +13,10 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString()
 
+/** Bề rộng trang PDF tối đa (khi panel ở dạng cột bên phải). */
 const PAGE_WIDTH = 460
+/** Padding p-4 hai bên của vùng cuộn — trừ ra để trang không bị tràn. */
+const PAGE_GUTTER = 32
 
 /** Chờ text-layer render xong (~1.8s) trước khi chịu thua và cuộn theo pageNumber. */
 const GRACE_TICKS = 12
@@ -115,6 +118,19 @@ export function PdfViewerPanel({
   onClose: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Trang PDF co theo bề rộng thật của khung: ở khổ điện thoại 460px cố định sẽ
+  // tràn ra ngoài, buộc người đọc phải cuộn ngang từng dòng.
+  const [pageWidth, setPageWidth] = useState(PAGE_WIDTH)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const apply = () => setPageWidth(Math.min(PAGE_WIDTH, el.clientWidth - PAGE_GUTTER))
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
   const [numPages, setNumPages] = useState(0)
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState('')
@@ -233,7 +249,9 @@ export function PdfViewerPanel({
   const showFallback = documentId == null || previewError != null
 
   return (
-    <aside className="flex h-full w-[480px] lg:w-[520px] shrink-0 flex-col border-l border-slate-200 bg-white overflow-hidden">
+    // Dưới lg: phủ toàn màn hình — 480px cạnh khung chat sẽ không còn chỗ cho chat
+    // trên điện thoại/tablet. Từ lg trở lên: trở lại cột bên phải như split-view.
+    <aside className="fixed inset-0 z-40 flex h-full w-full flex-col bg-white overflow-hidden lg:static lg:z-auto lg:w-[520px] lg:shrink-0 lg:border-l lg:border-slate-200">
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 bg-white">
         <div className="flex min-w-0 items-center gap-2">
           <FileTextIcon width={18} height={18} className="shrink-0 text-indigo-500" />
@@ -297,7 +315,7 @@ export function PdfViewerPanel({
                 <div id={`pdf-page-${pageNo}`} key={pageNo} className="mx-auto mb-3 w-fit shadow-sm">
                   <Page
                     pageNumber={pageNo}
-                    width={PAGE_WIDTH}
+                    width={pageWidth}
                     customTextRenderer={customTextRenderer}
                     renderAnnotationLayer={false}
                   />

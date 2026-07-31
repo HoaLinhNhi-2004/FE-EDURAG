@@ -37,7 +37,8 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
 }
 
 function mapBackendDocument(d: any): CourseDocument {
-  const docTitle = d.title ?? d.originalFilename ?? d.original_filename ?? 'Tài liệu môn học'
+  // Hiển thị theo `title`; KHÔNG fallback về tên file gốc vì tên file có thể sai encoding.
+  const docTitle = d.title ?? 'Tài liệu môn học'
   const docName = d.originalFilename ?? d.original_filename ?? d.title ?? 'Tài liệu'
 
   return {
@@ -289,6 +290,7 @@ export function DocumentsPage() {
   }, [canManage])
 
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [visibilityError, setVisibilityError] = useState<string | null>(null)
 
   function handleDownload(doc: CourseDocument) {
     const tok = getAccessToken()
@@ -339,19 +341,39 @@ export function DocumentsPage() {
   const activeCount = docs.filter((d) => !d.hidden).length
   const hiddenCount = docs.filter((d) => d.hidden).length
 
+  /**
+   * Ẩn/hiện tài liệu.
+   * KHÔNG đọc document từ thân response: `data.document` là shape của endpoint
+   * upload (DocumentUploadResponse), còn hide/unhide chỉ cam kết SuccessResponse
+   * chung — đọc `j.data.document` sẽ ra undefined và ném lỗi, khiến nút bấm như
+   * không có tác dụng cho tới khi F5.
+   * BE cũng xử lý bất đồng bộ (202 + job SET_RETRIEVAL) nên refetch ngay có thể
+   * đọc phải trạng thái cũ; vì vậy cập nhật lạc quan tại chỗ và chỉ hoàn tác khi
+   * request thất bại.
+   */
   async function toggleVisibility(doc: CourseDocument) {
     if (!canManage) return
-    const tok = getAccessToken()
-    const action = doc.hidden ? 'unhide' : 'hide'
-    const res = await fetch(`${API}/documents/${doc.id}/${action}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${tok}` },
-    })
-    const j = await res.json()
-    if (res.ok) {
-      // BE trả 202 với { document, job } trong data
-      const updatedDoc = mapBackendDocument(j.data.document)
-      setDocs((prev) => prev.map((d) => (d.id === doc.id ? updatedDoc : d)))
+    const nextHidden = !doc.hidden
+    const action = nextHidden ? 'hide' : 'unhide'
+
+    setVisibilityError(null)
+    setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, hidden: nextHidden } : d)))
+
+    try {
+      const tok = getAccessToken()
+      const res = await fetch(`${API}/documents/${doc.id}/${action}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}` },
+      })
+      if (!res.ok) throw new Error(`${action} failed: ${res.status}`)
+    } catch {
+      // Hoàn tác để giao diện không báo sai trạng thái so với BE.
+      setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, hidden: doc.hidden } : d)))
+      setVisibilityError(
+        nextHidden
+          ? 'Không ẩn được tài liệu. Vui lòng thử lại.'
+          : 'Không hiện lại được tài liệu. Vui lòng thử lại.',
+      )
     }
   }
 
@@ -403,6 +425,13 @@ export function DocumentsPage() {
           <Alert variant="error" className="flex items-center justify-between">
             <span>{downloadError}</span>
             <button onClick={() => setDownloadError(null)} className="ml-4 font-bold text-red-600 hover:text-red-800 text-xs">✕</button>
+          </Alert>
+        )}
+
+        {visibilityError && (
+          <Alert variant="error" className="flex items-center justify-between">
+            <span>{visibilityError}</span>
+            <button onClick={() => setVisibilityError(null)} className="ml-4 font-bold text-red-600 hover:text-red-800 text-xs">✕</button>
           </Alert>
         )}
 
@@ -598,7 +627,10 @@ export function DocumentsPage() {
         ) : (
           /* ── TABLE VIEW ── */
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <table className="w-full text-sm border-collapse">
+            {/* Bảng 7 cột, header whitespace-nowrap → màn hẹp phải cuộn ngang được,
+                nếu không các cột bị bóp nát hoặc cắt cụt bởi overflow-hidden ở ngoài. */}
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[880px] text-sm border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/70">
                   {['TÊN TÀI LIỆU', 'MÔN HỌC', 'LOẠI / TÁC GIẢ', 'KÍCH THƯỚC', 'CẬP NHẬT', 'TRẠNG THÁI', 'THAO TÁC'].map((h) => (
@@ -687,6 +719,7 @@ export function DocumentsPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 

@@ -11,6 +11,7 @@ import {
   Input,
   LockIcon,
   MailIcon,
+  PasswordInput,
 } from '@/components/ui'
 import type { ApiError, LoginResponse } from '@/types'
 import { authApi } from '@/api/auth.api'
@@ -96,9 +97,8 @@ export function LoginPage() {
         </FormField>
 
         <FormField label="Mật khẩu" htmlFor="password" error={errors.password?.message}>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             leftIcon={<LockIcon />}
             placeholder="Nhập mật khẩu"
             invalid={!!errors.password}

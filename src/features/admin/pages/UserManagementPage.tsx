@@ -336,7 +336,8 @@ export function UserManagementPage() {
                 <span className="w-8 h-8 border-[3px] border-indigo-600 border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
-              <table className="w-full text-sm border-collapse">
+              /* min-w để 6 cột không bị bóp nát trên màn hẹp; wrapper ngoài đã có overflow-x-auto */
+              <table className="w-full min-w-[860px] text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70 sticky top-0 z-10">
                     {['Người dùng', 'Số điện thoại', 'Vai trò', 'Trạng thái', 'Ngày tham gia', 'Thao tác'].map((h) => (
