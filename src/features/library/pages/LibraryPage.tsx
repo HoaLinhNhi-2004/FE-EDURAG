@@ -17,17 +17,14 @@ function fmtSize(bytes: number) {
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
-function fileExt(name: string) {
-  return name.split('.').pop()?.toLowerCase() ?? ''
-}
 
 function mapLibraryDocument(d: any): CourseDocument {
   return {
     id: d.id,
     name: d.originalFilename ?? d.original_filename ?? d.title ?? 'Tài liệu',
     fileType: (d.fileType ?? d.file_type ?? 'pdf').toLowerCase() as any,
-    courseId: d.courseId ?? '',
-    courseName: d.courseName ?? d.course_name ?? 'Môn học chung',
+    courseId: '',
+    courseName: 'Môn học chung',
     sizeBytes: d.fileSize ?? d.fileSizeBytes ?? d.file_size_bytes ?? 0,
     status: 'ready',
     hidden: false,
@@ -35,10 +32,10 @@ function mapLibraryDocument(d: any): CourseDocument {
     uploadedAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
     currentVersion: d.currentVersion ?? 1,
     title: d.title ?? d.originalFilename ?? d.original_filename,
-    author: d.author,
-    docType: d.docType ?? d.doc_type,
-    publishYear: d.publishYear ?? d.publish_year,
-    abstract: d.description ?? d.abstract,
+    author: d.author ?? 'Giảng viên',
+    docType: d.fileType ? `${d.fileType.toUpperCase()} Document` : 'Tài liệu',
+    publishYear: undefined,
+    abstract: d.description ?? d.abstract ?? '',
   }
 }
 
@@ -459,7 +456,6 @@ export function LibraryPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {docs.map((doc, idx) => {
                 const palette = CARD_PALETTES[((page - 1) * PAGE_LIMIT + idx) % CARD_PALETTES.length]
-                const ext = fileExt(doc.name)
                 return (
                   <div
                     key={doc.id}
@@ -468,11 +464,8 @@ export function LibraryPage() {
                     {/* Banner */}
                     <div className={`h-40 p-4 ${palette.bg} flex flex-col justify-between relative border-b border-slate-100/60`}>
                       <div className="flex items-center justify-between">
-                        <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase bg-white/90 shadow-2xs ${EXT_COLOR[ext] ?? 'text-slate-600 border-slate-200'}`}>
-                          {ext}
-                        </span>
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full text-[10px] font-semibold">
-                          Sẵn sàng
+                        <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase bg-white/90 shadow-2xs ${EXT_COLOR[doc.fileType] ?? 'text-slate-600 border-slate-200'}`}>
+                          {doc.fileType}
                         </span>
                       </div>
                       <div className="flex flex-col items-center justify-center my-auto">
@@ -542,7 +535,6 @@ export function LibraryPage() {
                 </thead>
                 <tbody>
                   {docs.map((doc, i) => {
-                    const ext = fileExt(doc.name)
                     return (
                       <tr
                         key={doc.id}
@@ -550,8 +542,8 @@ export function LibraryPage() {
                       >
                         <td className="px-4 py-3 max-w-[220px]">
                           <div className="flex items-center gap-2.5">
-                            <span className={`inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase ${EXT_COLOR[ext] ?? 'bg-slate-50 text-slate-500 border-slate-100'}`}>
-                              {ext}
+                            <span className={`inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase ${EXT_COLOR[doc.fileType] ?? 'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                              {doc.fileType}
                             </span>
                             <span className="truncate font-medium text-slate-800 text-xs" title={doc.title ?? doc.name}>
                               {doc.title ?? doc.name}

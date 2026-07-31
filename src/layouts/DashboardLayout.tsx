@@ -90,8 +90,7 @@ const ADMIN_NAV: NavGroup[] = [
   {
     heading: 'TÀI KHOẢN',
     items: [
-      { label: 'Quản lý Giảng viên', to: '/dashboard/teachers', Icon: UserIcon },
-      { label: 'Quản lý Sinh viên', to: '/dashboard/students', Icon: UsersIcon },
+      { label: 'Quản lý Người dùng', to: '/dashboard/users', Icon: UsersIcon },
     ],
   },
   {

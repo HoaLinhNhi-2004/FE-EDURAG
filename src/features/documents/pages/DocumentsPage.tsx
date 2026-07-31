@@ -23,23 +23,7 @@ function fileExt(name: string) {
   return name.split('.').pop()?.toLowerCase() ?? ''
 }
 
-const COURSES = [
-  { id: 'CS101', name: 'Trí tuệ nhân tạo' },
-  { id: 'CS102', name: 'Hệ thống thông minh' },
-  { id: 'ML101', name: 'Học Máy & AI' },
-  { id: 'DL201', name: 'Deep Learning' },
-  { id: 'NLP301', name: 'NLP' },
-  { id: 'CV401', name: 'Computer Vision' },
-  { id: 'DS101', name: 'Khoa học Dữ liệu' },
-]
-const DOC_TYPES = [
-  'Giáo trình',
-  'Bài giảng / Slide',
-  'Đề thi / Đáp án',
-  'Bài báo khoa học',
-  'Đồ án / Báo cáo mẫu',
-  'Tài liệu tham khảo',
-]
+
 const ALLOWED_EXT = ['pdf', 'docx', 'pptx']
 const MAX_BYTES = 50 * 1024 * 1024
 
@@ -49,19 +33,19 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   uploaded:{ label: 'Đã tải lên', cls: 'bg-indigo-100 text-indigo-700' },
   processing:{ label: 'Đang xử lý',cls: 'bg-blue-100 text-blue-700' },
   failed:  { label: 'Lỗi',       cls: 'bg-red-100 text-red-700' },
+  cancelled: { label: 'Đã hủy',   cls: 'bg-slate-100 text-slate-700' },
 }
 
 function mapBackendDocument(d: any): CourseDocument {
-  const courseId = d.courseId ?? 'CS101'
-  const courseOpt = COURSES.find(c => c.id === courseId)
   const docTitle = d.title ?? d.originalFilename ?? d.original_filename ?? 'Tài liệu môn học'
   const docName = d.originalFilename ?? d.original_filename ?? d.title ?? 'Tài liệu'
+
   return {
     id: d.id,
     name: docName,
     fileType: (d.fileType ?? d.file_type ?? 'pdf').toLowerCase() as any,
-    courseId: courseId,
-    courseName: courseOpt ? courseOpt.name : 'Môn học chung',
+    courseId: '',
+    courseName: 'Môn học chung',
     sizeBytes: d.fileSize ?? d.fileSizeBytes ?? d.file_size_bytes ?? 0,
     status: (d.processingStatus ?? d.processing_status ?? 'ready').toLowerCase() as any,
     hidden: (d.visibilityStatus ?? d.visibility_status) === 'HIDDEN',
@@ -70,9 +54,9 @@ function mapBackendDocument(d: any): CourseDocument {
     currentVersion: d.currentVersion ?? 1,
     title: docTitle,
     author: d.author ?? 'Giảng viên',
-    docType: d.docType ?? (d.fileType ? `${d.fileType} Document` : 'Tài liệu'),
-    publishYear: d.publishYear,
-    abstract: d.description ?? d.abstract,
+    docType: d.fileType ? `${d.fileType.toUpperCase()} Document` : 'Tài liệu',
+    publishYear: undefined,
+    abstract: d.description ?? d.abstract ?? '',
   }
 }
 
@@ -83,11 +67,8 @@ function UploadModal({ onClose, onUploaded }: UploadModalProps) {
   const token = getAccessToken()
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
-  const [courseId, setCourseId] = useState(COURSES[0].id)
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
-  const [docType, setDocType] = useState('')
-  const [publishYear, setPublishYear] = useState('')
   const [abstract, setAbstract] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -118,12 +99,8 @@ function UploadModal({ onClose, onUploaded }: UploadModalProps) {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('courseId', courseId)
       if (title.trim()) fd.append('title', title.trim())
       if (author.trim()) fd.append('author', author.trim())
-      if (docType) fd.append('docType', docType)
-      if (publishYear.trim()) fd.append('publishYear', publishYear.trim())
-      // BE nhận 'description' (không phải 'abstract') theo schema document-service.js
       if (abstract.trim()) fd.append('description', abstract.trim())
       
       const res = await fetch(`${API}/documents`, {
@@ -191,18 +168,6 @@ function UploadModal({ onClose, onUploaded }: UploadModalProps) {
         {/* Metadata fields */}
         <div className="grid grid-cols-2 gap-4 max-h-[55vh] overflow-y-auto pr-1">
 
-          {/* Môn học */}
-          <div className="col-span-2 flex flex-col gap-1">
-            <label className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Môn học <span className="text-red-500">*</span></label>
-            <select
-              value={courseId}
-              onChange={(e) => setCourseId(e.target.value)}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              {COURSES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-
           {/* Tên tài liệu */}
           <div className="col-span-2 flex flex-col gap-1">
             <label className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Tên tài liệu</label>
@@ -225,34 +190,9 @@ function UploadModal({ onClose, onUploaded }: UploadModalProps) {
             />
           </div>
 
-          {/* Loại tài liệu + Năm xuất bản */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Loại tài liệu</label>
-            <select
-              value={docType}
-              onChange={(e) => setDocType(e.target.value)}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              <option value="">-- Chọn loại --</option>
-              {DOC_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Năm xuất bản</label>
-            <input
-              value={publishYear}
-              onChange={(e) => setPublishYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              placeholder="VD: 2024"
-              inputMode="numeric"
-              maxLength={4}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-          </div>
-
-          {/* Tóm tắt */}
+          {/* Mô tả / Tóm tắt */}
           <div className="col-span-2 flex flex-col gap-1">
-            <label className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Tóm tắt nội dung</label>
+            <label className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Mô tả tài liệu</label>
             <textarea
               value={abstract}
               onChange={(e) => setAbstract(e.target.value)}
@@ -570,7 +510,6 @@ export function DocumentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((doc, idx) => {
               const palette = CARD_PALETTES[idx % CARD_PALETTES.length]
-              const ext = fileExt(doc.name)
 
               return (
                 <div
@@ -579,11 +518,19 @@ export function DocumentsPage() {
                 >
                   {/* Top Pastel Banner */}
                   <div className={`h-40 p-4 ${palette.bg} flex flex-col justify-between relative border-b border-slate-100/60`}>
-                    {/* Top Row: Format badge */}
+                    {/* Top Row: Format badge & Status badge */}
                     <div className="flex items-center justify-between">
-                      <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase bg-white/90 shadow-2xs ${extColor[ext] ?? 'text-slate-600 border-slate-200'}`}>
-                        {ext}
+                      <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase bg-white/90 shadow-2xs ${extColor[doc.fileType] ?? 'text-slate-600 border-slate-200'}`}>
+                        {doc.fileType}
                       </span>
+                      {(() => {
+                        const st = STATUS_MAP[doc.status] ?? { label: doc.status, cls: 'bg-slate-100 text-slate-600' }
+                        return (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold shadow-2xs ${st.cls}`}>
+                            {doc.hidden ? 'Đã ẩn' : st.label}
+                          </span>
+                        )
+                      })()}
                     </div>
 
                     {/* Center Icon & Category */}
@@ -661,7 +608,6 @@ export function DocumentsPage() {
               </thead>
               <tbody>
                 {filtered.map((doc, i) => {
-                  const ext = fileExt(doc.name)
                   const st = STATUS_MAP[doc.status] ?? { label: doc.status, cls: 'bg-slate-100 text-slate-600' }
                   return (
                     <tr
@@ -671,8 +617,8 @@ export function DocumentsPage() {
                       {/* Name + title */}
                       <td className="px-4 py-3 max-w-[220px]">
                         <div className="flex items-center gap-2.5">
-                          <span className={`inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase ${extColor[ext] ?? 'bg-slate-50 text-slate-500 border-slate-100'}`}>
-                            {ext}
+                          <span className={`inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase ${extColor[doc.fileType] ?? 'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                            {doc.fileType}
                           </span>
                           <span className="truncate font-medium text-slate-800 text-xs" title={doc.title ?? doc.name}>
                             {doc.title ?? doc.name}

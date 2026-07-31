@@ -18,19 +18,40 @@ const email = z
 
 const password = z.string().min(8, 'Mật khẩu phải có ít nhất 8 ký tự')
 
-// UC 1 — Đăng ký sinh viên: MSV và Ngày sinh bắt buộc để định danh.
+// UC 1 — Đăng ký sinh viên và giảng viên.
 export const registerSchema = z
   .object({
     fullName: z.string().min(1, 'Vui lòng nhập họ tên'),
     email,
     password,
     confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
-    studentCode: z.string().min(1, 'Vui lòng nhập mã số sinh viên'),
-    dateOfBirth: z.string().min(1, 'Vui lòng nhập ngày sinh'),
+    role: z.enum(['STUDENT', 'TEACHER']),
+    phone: z.string().optional().or(z.literal('')),
+    studentCode: z.string().optional(),
+    dateOfBirth: z.string().optional(),
+    department: z.string().optional(),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: 'Mật khẩu xác nhận không khớp',
     path: ['confirmPassword'],
+  })
+  .superRefine((d, ctx) => {
+    if (d.role === 'STUDENT') {
+      if (!d.studentCode || !d.studentCode.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Vui lòng nhập mã số sinh viên',
+          path: ['studentCode'],
+        })
+      }
+      if (!d.dateOfBirth || !d.dateOfBirth.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Vui lòng nhập ngày sinh',
+          path: ['dateOfBirth'],
+        })
+      }
+    }
   })
 
 // UC 3 — Đăng nhập: không lộ email tồn tại hay không (xử lý ở tầng thông báo lỗi API).
