@@ -2,6 +2,7 @@ import { SparkleIcon } from '@/components/ui'
 import { cn } from '@/utils/cn'
 import type { ChatMessage, Citation } from '@/types'
 import { CitationChip } from './CitationChip'
+import { MarkdownMessage } from './MarkdownMessage'
 
 /** Bong bóng tin nhắn: người dùng (phải, nền tím) / trợ lý (trái, kèm trích dẫn). */
 export function MessageBubble({
@@ -40,7 +41,7 @@ export function MessageBubble({
       <div className="max-w-[80%]">
         <div
           className={cn(
-            'whitespace-pre-wrap rounded-2xl rounded-tl-sm border px-4 py-2.5 text-sm',
+            'rounded-2xl rounded-tl-sm border px-4 py-2.5 text-sm',
             isError
               ? 'border-red-200 bg-red-50 text-red-700'
               : isNoAnswer
@@ -48,7 +49,15 @@ export function MessageBubble({
                 : 'border-slate-200 bg-white text-slate-700',
           )}
         >
-          {message.content}
+          {isError ? (
+            <div className="whitespace-pre-wrap">{message.content}</div>
+          ) : (
+            <MarkdownMessage
+              content={message.content}
+              citations={message.citations}
+              onSelectCitation={onSelectCitation}
+            />
+          )}
         </div>
         {/* Badge hiện khi câu hỏi ngoài phạm vi tài liệu (BE trả noAnswer=true) */}
         {isNoAnswer && (
