@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
-import { Alert, Button, FileTextIcon, Spinner, XIcon } from '@/components/ui'
+import { Alert, DownloadIcon, FileTextIcon, Spinner, XIcon } from '@/components/ui'
 import type { ApiError, Citation } from '@/types'
 import { citationsApi } from '@/api/citations.api'
 
@@ -15,10 +15,42 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 const PAGE_WIDTH = 460
 
+/** Chờ text-layer render xong (~1.8s) trước khi chịu thua và cuộn theo pageNumber. */
+const GRACE_TICKS = 12
+
+const HEADING_RE = /^\s{0,3}#{1,6}\s+(.*)$/
+const TABLE_ROW_RE = /^\s*\|.*\|\s*$/
+/** Số/chữ đánh mục đứng một mình: "1.", "2)", "IV.", "a)". */
+const ORDINAL_ONLY_RE = /^(?:\d{1,3}|[IVXLC]{1,6}|[a-z])[.)]?$/i
+
+/** Bỏ cú pháp Markdown inline, giữ nguyên phần chữ. */
+const stripInline = (s: string) =>
+  s
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .trim()
+
+/**
+ * Bỏ cú pháp Markdown khỏi chuỗi trước khi so khớp.
+ * BE chuyển tài liệu sang Markdown lúc ingest nên `sourceText` có `#`, `**`… trong
+ * khi text-layer của PDF thì không — không bỏ đi thì highlight trượt.
+ */
+const stripMarkdown = (s: string) =>
+  stripInline(
+    s
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+      .replace(/^\s{0,3}>\s?/gm, '')
+      .replace(/^\s{0,3}[-*+]\s+/gm, '')
+      .replace(/\|/g, ' '),
+  )
+
 // Bỏ dấu tiếng Việt + gom khoảng trắng + bỏ dấu câu cuối — để so khớp text-layer
 // bền hơn (BE lưu ý: highlight best-effort do khác encoding/normalize/OCR).
 const normalize = (s: string) =>
-  s
+  stripMarkdown(s)
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/đ/gi, 'd')
@@ -27,11 +59,53 @@ const normalize = (s: string) =>
     .replace(/\s+/g, ' ')
     .trim()
 
+type ExcerptLine = { kind: 'heading' | 'text'; text: string }
+
+/**
+ * Tách đoạn trích thô thành các dòng có phân loại để hiển thị tử tế.
+ * Không dựng bảng thật — dòng dạng bảng giữ nguyên vì bóc dấu `|` là mất cột.
+ */
+function parseExcerpt(raw: string): ExcerptLine[] {
+  const lines = raw.split('\n')
+  const out: ExcerptLine[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+
+    if (TABLE_ROW_RE.test(line)) {
+      out.push({ kind: 'text', text: line.trim() })
+      continue
+    }
+
+    const heading = line.match(HEADING_RE)
+    if (heading) {
+      let text = stripInline(heading[1])
+      // Bộ chuyển tài liệu sang Markdown hay tách "# 1." khỏi tiêu đề thật ở dòng
+      // kế tiếp — gộp lại để không còn số mục lơ lửng một mình.
+      if (ORDINAL_ONLY_RE.test(text)) {
+        const next = lines[i + 1]?.trim()
+        if (next && !HEADING_RE.test(next) && !TABLE_ROW_RE.test(next)) {
+          text = `${text} ${stripInline(next)}`.trim()
+          i++
+        }
+      }
+      if (text) out.push({ kind: 'heading', text })
+      continue
+    }
+
+    const text = stripInline(line)
+    if (text) out.push({ kind: 'text', text })
+  }
+
+  return out
+}
+
 /**
  * UC 10 — Panel xem tài liệu gốc từ thẻ trích dẫn.
- * Flow: lấy chi tiết citation (originalAvailable) → tải file (Blob) → PDF.js render,
- * cuộn đến pageNumber, highlight sourceText best-effort trong text-layer.
- * Không phải PDF / file không khả dụng → fallback: hiện sourceText + tải xuống.
+ * Flow: lấy chi tiết citation → tải bản PDF chuẩn hóa của tài liệu (mọi định dạng
+ * đều đi đường này; DOCX được BE sinh sẵn PDF lúc ingest) → PDF.js render,
+ * highlight sourceText trong text-layer rồi cuộn tới đúng đoạn đó.
+ * Không có bản preview (PPTX / chưa sinh xong / tài liệu đã xóa) → fallback: hiện đoạn trích.
  */
 export function PdfViewerPanel({
   citation,
@@ -42,52 +116,38 @@ export function PdfViewerPanel({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [numPages, setNumPages] = useState(0)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState('')
 
-  // 1) Chi tiết citation — để biết originalAvailable + dữ liệu chuẩn từ BE.
+  // 1) Chi tiết citation — để biết documentId + originalAvailable + dữ liệu chuẩn từ BE.
   const detailQuery = useQuery({
     queryKey: ['citation', citation.id],
     queryFn: () => citationsApi.getCitation(citation.id),
   })
   const detail = detailQuery.data ?? citation
   const targetPage = detail.pageNumber ?? 1
-  const available = detail.originalAvailable
+  const documentId = detail.documentId
 
-  // 2) Tải file gốc (chỉ khi originalAvailable === true).
-  const fileQuery = useQuery({
-    queryKey: ['citation-file', citation.id],
-    queryFn: () => citationsApi.getCitationFile(citation.id),
-    enabled: available === true,
+  // 2) Bản PDF chuẩn hóa để render. documentId = null nghĩa là tài liệu gốc đã bị xóa.
+  const previewQuery = useQuery({
+    queryKey: ['citation-preview', documentId],
+    queryFn: () => citationsApi.getDocumentPreview(documentId as number),
+    enabled: documentId != null,
     retry: false,
   })
 
-  // Blob → object URL cho pdf.js / nút tải xuống.
+  // Blob → object URL cho pdf.js.
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   useEffect(() => {
-    if (!fileQuery.data) return
-    const url = URL.createObjectURL(fileQuery.data.blob)
+    if (!previewQuery.data) {
+      setObjectUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(previewQuery.data)
     setObjectUrl(url)
+    setNumPages(0)
     return () => URL.revokeObjectURL(url)
-  }, [fileQuery.data])
-
-  const isPdf = fileQuery.data?.contentType.includes('pdf') ?? false
-
-  // Cuộn tới đúng trang: poll đến khi trang mục tiêu có chiều cao thật (đã render xong),
-  // rồi cuộn vài lần để chống scroll bị reset do text-layer reflow.
-  useEffect(() => {
-    if (!numPages) return
-    let tries = 0
-    let scrolls = 0
-    const id = setInterval(() => {
-      const el = scrollRef.current?.querySelector(`#pdf-page-${targetPage}`) as HTMLElement | null
-      if (el && el.offsetHeight > 50) {
-        el.scrollIntoView({ block: 'start' })
-        if (++scrolls >= 3) clearInterval(id)
-      } else if (++tries > 40) {
-        clearInterval(id)
-      }
-    }, 150)
-    return () => clearInterval(id)
-  }, [numPages, targetPage])
+  }, [previewQuery.data])
 
   // Highlight best-effort: tô text-item khớp (một chiều) với sourceText (BE chưa có toạ độ).
   const customTextRenderer = useMemo(() => {
@@ -102,7 +162,75 @@ export function PdfViewerPanel({
     }
   }, [detail.sourceText])
 
-  const fileError = (fileQuery.error as unknown) as ApiError | null
+  // Cuộn tới đoạn được highlight. `pageNumber` với DOCX là segment giả lập, không
+  // phải trang của bản PDF sinh ra — nên chỉ dùng khi không khớp được chữ nào.
+  useEffect(() => {
+    if (!numPages) return
+    let ticks = 0
+    let scrolls = 0
+    const id = setInterval(() => {
+      ticks++
+      const root = scrollRef.current
+      if (!root) return
+
+      const pageEl = root.querySelector(`#pdf-page-${targetPage}`) as HTMLElement | null
+      // Ưu tiên highlight nằm đúng trang BE chỉ: sourceText ngắn (vd tên tài liệu)
+      // khớp được ở nhiều trang, lấy cái đầu tiên trong tài liệu sẽ cuộn sai chỗ.
+      const onTargetPage = pageEl?.querySelector('mark') as HTMLElement | null
+      // Hết thời gian chờ mới chấp nhận highlight ở trang khác — với DOCX thì
+      // pageNumber là segment giả lập, không trùng trang của bản PDF sinh ra.
+      const mark =
+        onTargetPage ??
+        (ticks >= GRACE_TICKS ? (root.querySelector('mark') as HTMLElement | null) : null)
+
+      if (mark) {
+        mark.scrollIntoView({ block: 'center' })
+        if (++scrolls >= 3) clearInterval(id)
+        return
+      }
+
+      // Không khớp được chữ nào → lùi về pageNumber.
+      if (ticks >= GRACE_TICKS && pageEl && pageEl.offsetHeight > 50) {
+        pageEl.scrollIntoView({ block: 'start' })
+        if (++scrolls >= 3) clearInterval(id)
+      }
+      if (ticks > 40) clearInterval(id)
+    }, 150)
+    return () => clearInterval(id)
+  }, [numPages, targetPage])
+
+  // Tải file gốc — chỉ khi người dùng bấm, vì phần render đã dùng bản preview.
+  const handleDownload = useCallback(async () => {
+    setDownloading(true)
+    setDownloadError('')
+    try {
+      const { blob } = await citationsApi.getCitationFile(citation.id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = detail.documentTitle || 'tai-lieu'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      setDownloadError('Không tải được file gốc. Vui lòng thử lại.')
+    } finally {
+      setDownloading(false)
+    }
+  }, [citation.id, detail.documentTitle])
+
+  const previewError = (previewQuery.error as unknown) as ApiError | null
+  const fallbackNote =
+    documentId == null
+      ? 'Tài liệu gốc đã bị xóa khỏi hệ thống. Dưới đây là đoạn trích đã lưu.'
+      : previewError?.code === 'PREVIEW_NOT_READY'
+        ? 'Định dạng này chưa có bản xem trước. Dưới đây là đoạn trích đã lưu.'
+        : previewError?.status === 404
+          ? 'Không tìm thấy tài liệu gốc. Dưới đây là đoạn trích đã lưu.'
+          : 'Không mở được tài liệu gốc. Dưới đây là đoạn trích đã lưu.'
+
+  const showFallback = documentId == null || previewError != null
 
   return (
     <aside className="flex h-full w-[480px] lg:w-[520px] shrink-0 flex-col border-l border-slate-200 bg-white overflow-hidden">
@@ -116,35 +244,42 @@ export function PdfViewerPanel({
             )}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          title="Đóng"
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-        >
-          <XIcon width={18} height={18} />
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          {detail.originalAvailable === true && (
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={downloading}
+              title="Tải file gốc"
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+            >
+              {downloading ? <Spinner /> : <DownloadIcon width={18} height={18} />}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            title="Đóng"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <XIcon width={18} height={18} />
+          </button>
+        </div>
       </header>
 
+      {downloadError && (
+        <div className="shrink-0 border-b border-red-100 bg-red-50 px-4 py-2 text-xs text-red-600">
+          {downloadError}
+        </div>
+      )}
+
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto bg-slate-100 p-4">
-        {detailQuery.isPending || (available && fileQuery.isPending) ? (
+        {detailQuery.isPending || (documentId != null && previewQuery.isPending) ? (
           <div className="flex items-center justify-center gap-2 py-16 text-slate-500">
             <Spinner /> Đang mở tài liệu…
           </div>
-        ) : available === false || fileError ? (
-          // File gốc không khả dụng (409) → vẫn hiện đoạn trích (UC 10 exception).
-          <FallbackSource
-            sourceText={detail.sourceText}
-            note="File gốc hiện không mở được. Dưới đây là đoạn trích đã lưu."
-          />
-        ) : objectUrl && !isPdf ? (
-          // File không phải PDF (DOCX/TXT) → không render trực tiếp, cho tải xuống.
-          <FallbackSource
-            sourceText={detail.sourceText}
-            note="Định dạng này chưa xem trực tiếp được."
-            downloadUrl={objectUrl}
-            downloadName={detail.documentTitle}
-          />
+        ) : showFallback ? (
+          <FallbackSource sourceText={detail.sourceText} note={fallbackNote} />
         ) : objectUrl ? (
           <Document
             file={objectUrl}
@@ -176,29 +311,32 @@ export function PdfViewerPanel({
   )
 }
 
-function FallbackSource({
-  sourceText,
-  note,
-  downloadUrl,
-  downloadName,
-}: {
-  sourceText: string
-  note: string
-  downloadUrl?: string
-  downloadName?: string
-}) {
+function FallbackSource({ sourceText, note }: { sourceText: string; note: string }) {
+  const lines = useMemo(() => parseExcerpt(sourceText ?? ''), [sourceText])
+
   return (
     <div className="mx-auto max-w-md">
       <Alert variant="info">{note}</Alert>
       <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Đoạn trích nguồn</p>
-        <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{sourceText}</p>
+        {lines.length === 0 ? (
+          <p className="mt-2 text-sm italic text-slate-400">Không có nội dung trích dẫn.</p>
+        ) : (
+          <div className="mt-2">
+            {lines.map((line, i) =>
+              line.kind === 'heading' ? (
+                <p key={i} className="mt-3 text-sm font-semibold text-slate-900 first:mt-0">
+                  {line.text}
+                </p>
+              ) : (
+                <p key={i} className="mt-1.5 text-sm leading-relaxed text-slate-700 first:mt-0">
+                  {line.text}
+                </p>
+              ),
+            )}
+          </div>
+        )}
       </div>
-      {downloadUrl && (
-        <a href={downloadUrl} download={downloadName} className="mt-4 inline-block">
-          <Button variant="secondary">Tải xuống file gốc</Button>
-        </a>
-      )}
     </div>
   )
 }
