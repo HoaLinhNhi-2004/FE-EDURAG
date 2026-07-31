@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getAccessToken } from '@/utils/token'
 import type { User, Role, UserStatus } from '@/types'
 import { mapBackendUser, type RawUser } from '@/api/user.mapper'
 import { SearchIcon } from '@/components/ui/icons'
 import { PageHeader } from '@/components/ui'
+import { useAuth } from '@/store/auth'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
@@ -92,6 +93,7 @@ const ROLE_MAP: Record<Role, { label: string; cls: string }> = {
 }
 
 export function UserManagementPage() {
+  const { user: currentUser } = useAuth()
   const [users, setUsers] = useState<User[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -115,7 +117,7 @@ export function UserManagementPage() {
   const [errorMsg, setErrorMsg] = useState('')
 
   // Fetch Users List
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
       const tok = getAccessToken()
@@ -131,7 +133,7 @@ export function UserManagementPage() {
       )
       if (res.ok) {
         const data = await res.json()
-        const rawUsers: RawUser[] = data.data?.users ?? []
+        const rawUsers: RawUser[] = data.data?.users ?? data.data?.items ?? []
         setUsers(rawUsers.map(mapBackendUser).filter((u): u is User => u !== null))
         setTotal(data.data?.total ?? 0)
       }
@@ -140,16 +142,19 @@ export function UserManagementPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [roleFilter, statusFilter, page, limit, search])
 
   useEffect(() => {
     fetchUsers()
-  }, [roleFilter, statusFilter, page, limit])
+  }, [fetchUsers])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setPage(1)
-    fetchUsers()
+    if (page === 1) {
+      fetchUsers()
+    } else {
+      setPage(1)
+    }
   }
 
   // Fetch User Details
@@ -213,6 +218,7 @@ export function UserManagementPage() {
         setErrorMsg(data.message ?? 'Cập nhật trạng thái thất bại.')
       }
     } catch (err) {
+      console.error('Lỗi khi cập nhật trạng thái:', err)
       setErrorMsg('Đã xảy ra lỗi hệ thống.')
     }
   }
@@ -438,7 +444,7 @@ export function UserManagementPage() {
                             )}
 
                             {/* Khóa tài khoản */}
-                            {u.status === 'ACTIVE' && (
+                            {u.status === 'ACTIVE' && u.id !== currentUser?.id && (
                               <button
                                 onClick={() => {
                                   if (window.confirm('Bạn có chắc chắn muốn khóa tài khoản này?')) {
@@ -689,7 +695,7 @@ export function UserManagementPage() {
                 </button>
               )}
 
-              {selectedUser.status === 'ACTIVE' && selectedUser.id !== userDetail?.id && (
+              {selectedUser.status === 'ACTIVE' && selectedUser.id !== currentUser?.id && (
                 <button
                   onClick={() => {
                     if (window.confirm('Bạn có chắc chắn muốn khóa tài khoản này?')) {

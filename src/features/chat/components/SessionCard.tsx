@@ -9,10 +9,13 @@ import { formatSessionTime } from '@/utils/datetime'
  */
 export function SessionCard({
   session,
+  index,
   onOpen,
   onDelete,
 }: {
   session: ChatSession
+  /** Số thứ tự hiển thị (1-based). */
+  index?: number
   onOpen: () => void
   onDelete: () => void
 }) {
@@ -21,11 +24,16 @@ export function SessionCard({
   return (
     <div className="group relative rounded-xl border border-slate-100 bg-white transition-all hover:shadow-sm hover:border-indigo-100">
       <button type="button" onClick={onOpen} className="flex w-full gap-3 p-4 text-left">
-        {/* Icon */}
+        {/* Icon + index badge */}
         <div className="relative mt-0.5 shrink-0">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500">
             <ChatBubbleIcon width={18} height={18} />
           </div>
+          {index != null && (
+            <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-bold text-white leading-none">
+              {index}
+            </span>
+          )}
         </div>
 
         <div className="min-w-0 flex-1">

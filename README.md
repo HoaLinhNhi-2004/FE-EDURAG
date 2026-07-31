@@ -1,49 +1,82 @@
-# Edu RAG — Frontend Web
+# EduRAG — Giao Diện Web Frontend
 
-Hệ thống RAG Trợ lý Giáo dục & Đào tạo — giao diện web cho 3 vai trò: Sinh viên, Giảng viên, Quản trị viên.
+EduRAG là giao diện web của hệ thống RAG Trợ lý Giáo dục & Đào tạo, hỗ trợ 3 vai trò người dùng: **Sinh viên**, **Giảng viên**, và **Quản trị viên**. Giao diện này kết nối trực tiếp đến hệ thống Backend dịch vụ API.
 
-**Stack:** Vite · React 19 · TypeScript · Tailwind CSS v4 · React Router · TanStack Query · Axios
+## 🚀 Công Nghệ Sử Dụng
 
-## Chạy project
+* **Core**: React 19, TypeScript, Vite
+* **Routing**: React Router
+* **State Management & Data Fetching**: TanStack React Query v5, Axios
+* **Styling**: Tailwind CSS v4
 
+---
+
+## 🛠️ Hướng Dẫn Cài Đặt và Khởi Chạy
+
+### 1. Yêu cầu hệ thống
+* **Node.js**: Phiên bản `18.x` trở lên (Khuyến nghị bản LTS mới nhất).
+* **Trình quản lý gói**: `npm` đi kèm Node.js.
+
+### 2. Cài đặt các gói phụ thuộc
+Di chuyển vào thư mục dự án và chạy lệnh cài đặt:
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # typecheck + build production
 ```
 
-Biến môi trường trong `.env.development`:
+### 3. Cấu hình biến môi trường
+Tạo hoặc chỉnh sửa tệp `.env.development` ở thư mục gốc của dự án để trỏ tới Backend API:
 
-| Biến | Ý nghĩa |
-|------|---------|
-| `VITE_API_BASE_URL` | Base URL API backend |
-| `VITE_ENABLE_MOCK` | `true` = chạy bằng MSW mock, không cần BE |
-
-## Cấu trúc thư mục (task 1.2 — đã chốt, cả team theo cấu trúc này)
-
+```env
+# URL gốc kết nối đến API Backend
+VITE_API_BASE_URL=http://localhost:3000/api
 ```
+
+### 4. Khởi chạy dự án
+Đảm bảo dịch vụ Backend đang hoạt động, sau đó khởi động server phát triển:
+```bash
+npm run dev
+```
+Sau khi khởi chạy thành công, truy cập vào ứng dụng tại địa chỉ: [http://localhost:5173](http://localhost:5173).
+
+---
+
+## 📦 Biên Dịch Production
+
+Để kiểm tra kiểu dữ liệu (Typecheck) và biên dịch mã nguồn thành bản phân phối tối ưu (production bundle):
+```bash
+npm run build
+```
+Sản phẩm đầu ra sẽ được lưu tại thư mục `dist/`.
+
+---
+
+## 📂 Cấu Trúc Thư Mục Dự Án
+
+Thư mục mã nguồn chính nằm trong `src/` và được tổ chức theo kiến trúc module hóa:
+
+```text
 src/
-├── api/          # axios client + interceptor JWT/401, queryClient, endpoint theo module (auth.api.ts, ...)
-├── components/   # UI dùng chung (Button, Modal, Table, EmptyState...)
+├── api/          # Cấu hình axios client, interceptors tự gắn JWT, xử lý lỗi 401
+├── components/   # Các UI Component dùng chung (Button, Table, Alert, Modal, Input...)
 │   └── ui/
-├── features/     # code theo phân hệ — mỗi feature gồm pages/ components/ hooks/ riêng
-│   ├── auth/         # Đăng ký, Đăng nhập, Quên mật khẩu (UC 1-3, 12-14, 19)
-│   ├── chat/         # Trang chủ, Chat AI, Lịch sử, PDF Viewer (UC 7-11)
-│   ├── profile/      # Xem/sửa hồ sơ, đổi mật khẩu (UC 4-6, 15-16)
-│   ├── documents/    # Quản lý học liệu Giảng viên (UC 17-18)
-│   └── admin/        # Duyệt GV, quản lý SV, pipeline, FinOps (UC 20-23)
-├── layouts/      # AuthLayout, ClientLayout, DashboardLayout (task 1.4 — LN Long)
-├── routes/       # route config + ProtectedRoute theo role (task 1.3 — LN Long)
-├── mocks/        # MSW handlers + mock data (task 3.3 — LN Long)
-├── hooks/        # hook dùng chung (useAuth, useDebounce...)
-├── store/        # state toàn cục (auth session...)
-├── types/        # req/res model — "hợp đồng" FE-BE (task 3.2)
-└── utils/        # helper (token storage, format...)
+├── features/     # Quản lý mã nguồn theo phân hệ chức năng (Xem chi tiết dưới đây)
+│   ├── auth/     # Đăng ký, Đăng nhập, Quên/Đặt lại mật khẩu, OTP Admin
+│   ├── chat/     # Giao diện Chat AI, Lịch sử chat, PDF Viewer Panel (trích dẫn tài liệu gốc)
+│   ├── profile/  # Xem thông tin cá nhân, cập nhật hồ sơ, đổi mật khẩu
+│   ├── documents/# Giao diện Giảng viên tải lên và quản lý tài liệu
+│   └── admin/    # Dashboard Quản trị viên phê duyệt giảng viên, quản lý sinh viên
+├── layouts/      # Các bố cục khung (Bố cục Đăng nhập, Bố cục Trang Dashboard, Trang Sinh viên)
+├── routes/       # Cấu hình phân tuyến định tuyến và bảo mật định tuyến theo Vai trò
+├── store/        # State quản lý Auth Session toàn cục
+├── types/        # Định nghĩa các Interface TypeScript (Hợp đồng dữ liệu Request/Response với BE)
+└── utils/        # Các hàm tiện ích (token storage, định dạng ngày tháng...)
 ```
 
-## Quy ước
+---
 
-- Import tuyệt đối qua alias `@/` (vd. `import { apiClient } from '@/api/client'`).
-- Mọi call API đi qua `apiClient` — JWT tự gắn, lỗi đã chuẩn hóa thành `ApiError`, 401 tự đưa về `/login`.
-- Kiểu dữ liệu req/res khai báo trong `src/types/`, không định nghĩa inline trong component.
-- Tham chiếu yêu cầu: file `EDURAG_TT VTCPay.xlsx` (sheet **Chức năng**) và kế hoạch `KeHoach_FE_Web_EduRAG.xlsx`.
+## 📋 Quy Ước Phát Triển
+
+1. **Import Đường Dẫn**: Luôn sử dụng ký tự alias `@/` thay cho đường dẫn tương đối (Ví dụ: `import { Button } from '@/components/ui'`).
+2. **Giao Tiếp API**: Mọi yêu cầu gọi API phải thông qua `apiClient` được định nghĩa trong `src/api/client.ts`. Token JWT sẽ tự động được đính kèm vào Header và lỗi trả về sẽ được chuẩn hóa dưới dạng `ApiError`.
+3. **Khai Báo Kiểu Dữ Liệu**: Các kiểu dữ liệu đại diện cho Request/Response của API phải được định nghĩa tập trung trong thư mục `src/types/`, không định nghĩa trực tiếp bên trong component.
+4. **Xử Lý Lỗi Form**: Sử dụng `react-hook-form` kết hợp thư viện `zod` để khai báo các schema validate ở `src/features/auth/schemas.ts`.

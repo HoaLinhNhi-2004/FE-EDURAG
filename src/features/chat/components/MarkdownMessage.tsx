@@ -55,9 +55,9 @@ export function MarkdownMessage({
         // Citation [1]
         const order = parseInt(match[5], 10)
         
-        // Find citation by citationOrder or index + 1
+        // Find citation by citationOrder
         const citation = citations?.find(
-          c => c.citationOrder === order || c.id === order
+          c => c.citationOrder === order
         ) || (citations && citations[order - 1])
 
         if (citation) {
@@ -190,6 +190,14 @@ export function MarkdownMessage({
         <p key={`p-${i}`} className="text-slate-700 text-sm leading-relaxed mb-2">
           {parseInline(line)}
         </p>
+      )
+    }
+
+    if (inCodeBlock && codeBlockLines.length > 0) {
+      blocks.push(
+        <pre key="code-unclosed" className="bg-slate-900 text-slate-100 p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto border border-slate-800">
+          <code>{codeBlockLines.join('\n')}</code>
+        </pre>
       )
     }
 

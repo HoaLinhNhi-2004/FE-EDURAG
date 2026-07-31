@@ -145,10 +145,11 @@ export function HistoryPage() {
             </p>
           ) : (
             <div className={busy ? 'flex flex-col gap-3 opacity-60' : 'flex flex-col gap-3'}>
-              {filtered.map((session) => (
+              {filtered.map((session, idx) => (
                 <SessionCard
                   key={session.id}
                   session={session}
+                  index={idx + 1}
                   onOpen={() => navigate(`${chatPath}?session=${session.id}`)}
                   onDelete={() => handleDeleteOne(session)}
                 />
