@@ -15,6 +15,9 @@ dist-ssr
 # Claude Code — hướng dẫn cá nhân, không đẩy lên repo chung
 CLAUDE.local.md
 
+# File nháp tạm khi debug — không commit
+temp_*.txt
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
