@@ -28,6 +28,7 @@ export {
   FileTextIcon,
   TrashIcon,
   UploadIcon,
+  DownloadIcon,
   // Dashboard / system
   ClockIcon,
   BellIcon,
