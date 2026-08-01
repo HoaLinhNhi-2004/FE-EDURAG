@@ -31,7 +31,8 @@ function mapLibraryDocument(d: any): CourseDocument {
     uploadedBy: String(d.uploadedBy ?? d.uploaded_by ?? ''),
     uploadedAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
     currentVersion: d.currentVersion ?? 1,
-    title: d.title ?? d.originalFilename ?? d.original_filename,
+    // Hiển thị theo `title`; KHÔNG fallback về tên file gốc vì tên file có thể sai encoding.
+    title: d.title ?? 'Tài liệu',
     author: d.author ?? 'Giảng viên',
     docType: d.fileType ? `${d.fileType.toUpperCase()} Document` : 'Tài liệu',
     publishYear: undefined,
@@ -523,7 +524,9 @@ export function LibraryPage() {
           ) : (
             /* ── TABLE ── */
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-              <table className="w-full text-sm border-collapse">
+              {/* Cho phép cuộn ngang trên màn hẹp — xem chú thích ở DocumentsPage. */}
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[820px] text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70">
                     {['TÊN TÀI LIỆU', 'MÔN HỌC', 'LOẠI / TÁC GIẢ', 'KÍCH THƯỚC', 'CẬP NHẬT', 'THAO TÁC'].map((h) => (
@@ -584,6 +587,7 @@ export function LibraryPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 

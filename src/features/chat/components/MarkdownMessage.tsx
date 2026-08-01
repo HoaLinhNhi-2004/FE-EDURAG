@@ -1,5 +1,9 @@
 import type { Citation } from '@/types'
 
+/** Dòng dạng bảng Markdown: `| cột | cột |` (kể cả dòng kẻ `|---|---|`). */
+const TABLE_ROW_RE = /^\s*\|.*\|\s*$/
+const HEADING_RE = /^\s{0,3}#{1,6}\s+(.*)$/
+
 interface MarkdownMessageProps {
   content: string
   citations?: Citation[]
@@ -100,6 +104,26 @@ export function MarkdownMessage({
     let listType: 'ul' | 'ol' | null = null
     let inCodeBlock = false
     let codeBlockLines: string[] = []
+    let tableLines: string[] = []
+
+    /**
+     * Bảng (và mọi định dạng chưa chốt cách hiển thị) in nguyên văn dạng monospace.
+     * Cố tình KHÔNG dựng <table> thật: chưa chốt với BE cách trả biểu đồ/bảng, mà
+     * bóc dấu `|` là mất cột — giữ raw thì ít nhất cột còn canh thẳng và đọc được.
+     * Cùng hướng xử lý với parseExcerpt() trong PdfViewerPanel.tsx.
+     */
+    const flushTable = (key: number) => {
+      if (tableLines.length === 0) return
+      blocks.push(
+        <pre
+          key={`table-${key}`}
+          className="my-2 overflow-x-auto whitespace-pre rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-700"
+        >
+          {tableLines.join('\n')}
+        </pre>,
+      )
+      tableLines = []
+    }
 
     const flushList = (key: number) => {
       if (currentList.length > 0) {
@@ -137,6 +161,7 @@ export function MarkdownMessage({
         } else {
           // Start of code block
           flushList(i)
+          flushTable(i)
           inCodeBlock = true
         }
         continue
@@ -147,10 +172,34 @@ export function MarkdownMessage({
         continue
       }
 
+      // Gom các dòng bảng liền nhau thành một khối, in raw (xem flushTable).
+      if (TABLE_ROW_RE.test(line)) {
+        flushList(i)
+        tableLines.push(line.trim())
+        continue
+      }
+      // Gặp dòng không phải bảng → chốt khối bảng đang gom.
+      flushTable(i)
+
       const trimmed = line.trim()
 
       if (!trimmed) {
         flushList(i)
+        continue
+      }
+
+      // Tiêu đề `## ...`: bỏ dấu # cho sạch, không phóng to cỡ chữ trong bong bóng chat.
+      const headingMatch = trimmed.match(HEADING_RE)
+      if (headingMatch) {
+        flushList(i)
+        const headingText = headingMatch[1].trim()
+        if (headingText) {
+          blocks.push(
+            <p key={`h-${i}`} className="mt-3 mb-1 text-sm font-semibold text-slate-900">
+              {parseInline(headingText)}
+            </p>,
+          )
+        }
         continue
       }
 
@@ -201,6 +250,7 @@ export function MarkdownMessage({
       )
     }
 
+    flushTable(lines.length)
     flushList(lines.length)
     return blocks
   }

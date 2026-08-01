@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Alert, ArrowRightIcon, Button, FormField, Input, LockIcon } from '@/components/ui'
+import { Alert, ArrowRightIcon, Button, FormField, LockIcon, PasswordInput } from '@/components/ui'
 import type { ApiError } from '@/types'
 import { authApi } from '@/api/auth.api'
 import { AuthShell } from '../components/AuthShell'
@@ -93,9 +93,8 @@ export function ResetPasswordPage() {
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-4" noValidate>
           <FormField label="Mật khẩu mới" htmlFor="newPassword" error={errors.newPassword?.message}>
-            <Input
+            <PasswordInput
               id="newPassword"
-              type="password"
               leftIcon={<LockIcon />}
               placeholder="Tối thiểu 8 ký tự"
               invalid={!!errors.newPassword}
@@ -110,9 +109,8 @@ export function ResetPasswordPage() {
             htmlFor="confirmPassword"
             error={errors.confirmPassword?.message}
           >
-            <Input
+            <PasswordInput
               id="confirmPassword"
-              type="password"
               leftIcon={<LockIcon />}
               placeholder="Nhập lại mật khẩu mới"
               invalid={!!errors.confirmPassword}
