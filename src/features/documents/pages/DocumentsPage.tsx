@@ -1,15 +1,14 @@
-import { useState, useRef, useCallback, useEffect, type DragEvent, type ChangeEvent } from 'react'
+import { useState, useRef, useMemo, useCallback, useEffect, type DragEvent, type ChangeEvent } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/store/auth'
-import { getAccessToken } from '@/utils/token'
-import type { CourseDocument } from '@/types'
+import { documentsApi } from '@/api/documents.api'
+import type { ApiError, CourseDocument, IndexStatus } from '@/types'
 import { PageHeader, Alert } from '@/components/ui'
 import {
   CloudUploadIcon, XIcon, UploadIcon, SearchIcon, TrashIcon,
   EyeIcon, EyeOffIcon, DownloadIcon, FileTextIcon,
-  GridIcon, ListIcon, ImageIcon,
+  GridIcon, ListIcon, ImageIcon, RefreshIcon,
 } from '@/components/ui/icons'
-
-const API = import.meta.env.VITE_API_BASE_URL
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function fmtSize(bytes: number) {
@@ -22,10 +21,35 @@ function fmtDate(iso: string) {
 function fileExt(name: string) {
   return name.split('.').pop()?.toLowerCase() ?? ''
 }
-
+/** Lưu blob về máy — BE stream file chứ không trả URL nên phải tự tạo link tạm. */
+function saveBlob(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.URL.revokeObjectURL(url)
+}
 
 const ALLOWED_EXT = ['pdf', 'docx', 'pptx']
 const MAX_BYTES = 50 * 1024 * 1024
+
+/** Trạng thái tài liệu chưa xử lý xong ⇒ danh sách cần tự làm mới để lên "Hoạt động". */
+const PENDING_STATUSES: IndexStatus[] = ['queued', 'uploaded', 'processing', 'ocr', 'parsing', 'indexing']
+/** Chu kỳ tự làm mới khi còn tài liệu đang xử lý. */
+const POLL_INTERVAL_MS = 5_000
+/** Ngưng tự làm mới sau 2 phút — job treo thì không gọi BE mãi. */
+const MAX_POLL_DURATION_MS = 120_000
+/**
+ * Ẩn/hiện chạy nền (BE trả 202 + job SET_RETRIEVAL): đã đo với BE thật, GET ngay
+ * sau đó vẫn trả visibility cũ. Chờ một nhịp rồi mới refetch.
+ */
+const VISIBILITY_SYNC_DELAY_MS = 1_500
+
+/** Key cache TanStack — tách theo vai trò vì hai vai trò gọi endpoint khác nhau. */
+const documentsKey = (canManage: boolean) => ['documents', canManage ? 'managed' : 'library']
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   ready:   { label: 'Hoạt động', cls: 'bg-emerald-100 text-emerald-700' },
@@ -36,44 +60,23 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   cancelled: { label: 'Đã hủy',   cls: 'bg-slate-100 text-slate-700' },
 }
 
-function mapBackendDocument(d: any): CourseDocument {
-  // Hiển thị theo `title`; KHÔNG fallback về tên file gốc vì tên file có thể sai encoding.
-  const docTitle = d.title ?? 'Tài liệu môn học'
-  const docName = d.originalFilename ?? d.original_filename ?? d.title ?? 'Tài liệu'
-
-  return {
-    id: d.id,
-    name: docName,
-    fileType: (d.fileType ?? d.file_type ?? 'pdf').toLowerCase() as any,
-    courseId: '',
-    courseName: 'Môn học chung',
-    sizeBytes: d.fileSize ?? d.fileSizeBytes ?? d.file_size_bytes ?? 0,
-    status: (d.processingStatus ?? d.processing_status ?? 'ready').toLowerCase() as any,
-    hidden: (d.visibilityStatus ?? d.visibility_status) === 'HIDDEN',
-    uploadedBy: String(d.uploadedBy ?? d.uploaded_by ?? ''),
-    uploadedAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
-    currentVersion: d.currentVersion ?? 1,
-    title: docTitle,
-    author: d.author ?? 'Giảng viên',
-    docType: d.fileType ? `${d.fileType.toUpperCase()} Document` : 'Tài liệu',
-    publishYear: undefined,
-    abstract: d.description ?? d.abstract ?? '',
-  }
-}
-
 // ─── Upload Modal ─────────────────────────────────────────────────────────────
-interface UploadModalProps { onClose: () => void; onUploaded: (doc: CourseDocument) => void }
+interface UploadModalProps { onClose: () => void; onUploaded: () => void }
 
 function UploadModal({ onClose, onUploaded }: UploadModalProps) {
-  const token = getAccessToken()
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
   const [abstract, setAbstract] = useState('')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const upload = useMutation({
+    mutationFn: documentsApi.upload,
+    onSuccess: onUploaded,
+    onError: (err: ApiError) => setError(err.message),
+  })
 
   function pickFile(f: File) {
     setError('')
@@ -94,29 +97,10 @@ function UploadModal({ onClose, onUploaded }: UploadModalProps) {
     if (f) pickFile(f)
   }
 
-  async function handleUpload() {
+  function handleUpload() {
     if (!file) { setError('Vui lòng chọn file.'); return }
-    setLoading(true); setError('')
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      if (title.trim()) fd.append('title', title.trim())
-      if (author.trim()) fd.append('author', author.trim())
-      if (abstract.trim()) fd.append('description', abstract.trim())
-      
-      const res = await fetch(`${API}/documents`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      })
-      const json = await res.json()
-      // BE trả 202 khi upload thành công; 503 khi RAG dispatch thất bại
-      if (!res.ok) { setError(json.message ?? 'Upload thất bại.'); return }
-      // BE trả { document, job, previewJob } trong data
-      onUploaded(mapBackendDocument(json.data.document))
-    } catch {
-      setError('Lỗi kết nối. Vui lòng thử lại.')
-    } finally { setLoading(false) }
+    setError('')
+    upload.mutate({ file, title, author, description: abstract })
   }
 
   function onBackdrop(e: React.MouseEvent<HTMLDivElement>) {
@@ -214,15 +198,15 @@ function UploadModal({ onClose, onUploaded }: UploadModalProps) {
           </button>
           <button
             onClick={handleUpload}
-            disabled={loading}
+            disabled={upload.isPending}
             className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 rounded-lg transition-colors shadow"
           >
-            {loading ? (
+            {upload.isPending ? (
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <UploadIcon width={16} height={16} />
             )}
-            {loading ? 'Đang tải lên…' : 'Tải lên'}
+            {upload.isPending ? 'Đang tải lên…' : 'Tải lên'}
           </button>
         </div>
       </div>
@@ -265,58 +249,137 @@ const CARD_PALETTES = [
 export function DocumentsPage() {
   const { user } = useAuth()
   const canManage = user?.role === 'TEACHER' || user?.role === 'ADMIN'
+  const queryClient = useQueryClient()
+  const queryKey = documentsKey(canManage)
 
-  const [docs, setDocs] = useState<CourseDocument[]>([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'SLIDE' | 'TEXTBOOK' | 'LECTURE'>('ALL')
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [showUpload, setShowUpload] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<CourseDocument | null>(null)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  /**
+   * Ẩn/hiện vừa bấm nhưng BE chưa phản ánh (id → hidden). Phủ lên dữ liệu server
+   * để thẻ không bị "lật ngược" bởi một lần refetch sớm; xóa sau khi đã đồng bộ.
+   */
+  const [pendingVisibility, setPendingVisibility] = useState<Record<number, boolean>>({})
+  const clearPendingVisibility = useCallback((id: number) => {
+    setPendingVisibility((prev) => {
+      if (!(id in prev)) return prev
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+  }, [])
+
+  // ── Danh sách tài liệu ─────────────────────────────────────────────────────
+  const [pollExpired, setPollExpired] = useState(false)
+
+  // Lỗi đã được interceptor chuẩn hóa về ApiError nên khai báo rõ generic.
+  const { data, isPending, isError, error, refetch, isFetching } = useQuery<CourseDocument[], ApiError>({
+    queryKey,
+    queryFn: () => (canManage ? documentsApi.listManaged() : documentsApi.listLibrary()),
+  })
+
+  const serverDocs = useMemo(() => data ?? [], [data])
+
+  const docs = useMemo(() => {
+    const overlaid = serverDocs.map((d) =>
+      d.id in pendingVisibility ? { ...d, hidden: pendingVisibility[d.id] } : d,
+    )
+    // Vai trò không quản lý chỉ thấy tài liệu đang hiện.
+    return canManage ? overlaid : overlaid.filter((d) => !d.hidden)
+  }, [serverDocs, pendingVisibility, canManage])
+
+  // Còn tài liệu đang xử lý (vừa upload) ⇒ tự làm mới để trạng thái lên "Hoạt động"
+  // mà người dùng không phải reload trang.
+  const hasProcessingDocs = docs.some((d) => PENDING_STATUSES.includes(d.status))
 
   useEffect(() => {
-    const tok = getAccessToken()
-    const endpoint = canManage ? `${API}/documents` : `${API}/library/documents`
-    fetch(endpoint, { headers: { Authorization: `Bearer ${tok}` } })
-      .then((r) => r.json())
-      .then((j) => {
-        // BE trả { documents[], total, page, limit } hoặc { items[], ... } trong data
-        const rawDocs: any[] = j.data?.documents ?? j.data?.items ?? (Array.isArray(j.data) ? j.data : [])
-        const mapped = rawDocs.map(mapBackendDocument)
-        setDocs(canManage ? mapped : mapped.filter((d) => !d.hidden))
-      })
-      .catch(() => { /* ignore network errors on mount */ })
-      .finally(() => setLoading(false))
-  }, [canManage])
+    if (!hasProcessingDocs) { setPollExpired(false); return }
+    const id = setTimeout(() => setPollExpired(true), MAX_POLL_DURATION_MS)
+    return () => clearTimeout(id)
+  }, [hasProcessingDocs])
 
-  const [downloadError, setDownloadError] = useState<string | null>(null)
-  const [visibilityError, setVisibilityError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!hasProcessingDocs || pollExpired) return
+    const id = setInterval(() => { void refetch() }, POLL_INTERVAL_MS)
+    return () => clearInterval(id)
+  }, [hasProcessingDocs, pollExpired, refetch])
 
-  function handleDownload(doc: CourseDocument) {
-    const tok = getAccessToken()
-    const fileUrl = canManage
-      ? `${API}/documents/${doc.id}/file`
-      : `${API}/library/documents/${doc.id}/source`
-    
-    setDownloadError(null)
-    fetch(fileUrl, { headers: { Authorization: `Bearer ${tok}` } })
-      .then((res) => {
-        if (!res.ok) throw new Error('Download failed')
-        return res.blob()
-      })
-      .then((blob) => {
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = doc.title ?? doc.name ?? 'document'
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        window.URL.revokeObjectURL(url)
-      })
-      .catch(() => setDownloadError('Không tải được file tài liệu. Vui lòng thử lại sau.'))
+  // ── Mutations ──────────────────────────────────────────────────────────────
+  const invalidateDocs = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: documentsKey(canManage) }),
+    [queryClient, canManage],
+  )
+
+  /**
+   * Ẩn/hiện tài liệu — cập nhật lạc quan rồi mới đối chiếu với BE.
+   * BE trả 202 và xử lý nền nên refetch ngay sẽ đọc phải trạng thái cũ; vì vậy
+   * ghi vào `pendingVisibility` trước, chờ `VISIBILITY_SYNC_DELAY_MS` rồi refetch.
+   * Bấm lại khi job trước chưa xong → BE trả 409, báo cho người dùng chờ.
+   */
+  const visibility = useMutation({
+    mutationFn: ({ id, hidden }: { id: number; hidden: boolean }) =>
+      documentsApi.setVisibility(id, hidden),
+    onMutate: ({ id, hidden }) => {
+      setActionError(null)
+      setPendingVisibility((prev) => ({ ...prev, [id]: hidden }))
+    },
+    onSuccess: async (_result, { id }) => {
+      await new Promise((resolve) => setTimeout(resolve, VISIBILITY_SYNC_DELAY_MS))
+      await invalidateDocs()
+      clearPendingVisibility(id)
+    },
+    onError: (err: ApiError, { id, hidden }) => {
+      // Hoàn tác để giao diện không báo sai trạng thái so với BE.
+      clearPendingVisibility(id)
+      if (err.status === 409) {
+        setActionError('Tài liệu đang được cập nhật, vui lòng thử lại sau giây lát.')
+      } else {
+        setActionError(
+          hidden
+            ? 'Không ẩn được tài liệu. Vui lòng thử lại.'
+            : 'Không hiện lại được tài liệu. Vui lòng thử lại.',
+        )
+      }
+    },
+  })
+
+  const remove = useMutation({
+    mutationFn: (doc: CourseDocument) => documentsApi.remove(doc.id),
+    onMutate: () => setActionError(null),
+    onSuccess: (_result, doc) => {
+      clearPendingVisibility(doc.id)
+      return invalidateDocs()
+    },
+    onError: () => setActionError('Không xoá được tài liệu. Vui lòng thử lại.'),
+  })
+
+  const download = useMutation({
+    mutationFn: async (doc: CourseDocument) => {
+      const blob = await documentsApi.downloadFile(doc.id, canManage)
+      saveBlob(blob, doc.title ?? doc.name ?? 'document')
+    },
+    onMutate: () => setDownloadError(null),
+    onError: (err: ApiError) => {
+      setDownloadError(
+        err.status === 409
+          ? 'File gốc hiện không khả dụng (ORIGINAL_SOURCE_UNAVAILABLE).'
+          : 'Không tải được file tài liệu. Vui lòng thử lại sau.',
+      )
+    },
+  })
+
+  function confirmDelete() {
+    if (!deleteTarget || !canManage) return
+    remove.mutate(deleteTarget)
+    setDeleteTarget(null)
   }
 
+  // ── Lọc & thống kê ─────────────────────────────────────────────────────────
   const slideCount = docs.filter(d => (d.docType ?? '').toLowerCase().includes('slide') || d.fileType === 'pptx').length
   const textbookCount = docs.filter(d => (d.docType ?? '').toLowerCase().includes('giáo trình')).length
   const lectureCount = docs.filter(d => (d.docType ?? '').toLowerCase().includes('bài giảng')).length
@@ -341,53 +404,6 @@ export function DocumentsPage() {
   const activeCount = docs.filter((d) => !d.hidden).length
   const hiddenCount = docs.filter((d) => d.hidden).length
 
-  /**
-   * Ẩn/hiện tài liệu.
-   * KHÔNG đọc document từ thân response: `data.document` là shape của endpoint
-   * upload (DocumentUploadResponse), còn hide/unhide chỉ cam kết SuccessResponse
-   * chung — đọc `j.data.document` sẽ ra undefined và ném lỗi, khiến nút bấm như
-   * không có tác dụng cho tới khi F5.
-   * BE cũng xử lý bất đồng bộ (202 + job SET_RETRIEVAL) nên refetch ngay có thể
-   * đọc phải trạng thái cũ; vì vậy cập nhật lạc quan tại chỗ và chỉ hoàn tác khi
-   * request thất bại.
-   */
-  async function toggleVisibility(doc: CourseDocument) {
-    if (!canManage) return
-    const nextHidden = !doc.hidden
-    const action = nextHidden ? 'hide' : 'unhide'
-
-    setVisibilityError(null)
-    setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, hidden: nextHidden } : d)))
-
-    try {
-      const tok = getAccessToken()
-      const res = await fetch(`${API}/documents/${doc.id}/${action}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${tok}` },
-      })
-      if (!res.ok) throw new Error(`${action} failed: ${res.status}`)
-    } catch {
-      // Hoàn tác để giao diện không báo sai trạng thái so với BE.
-      setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, hidden: doc.hidden } : d)))
-      setVisibilityError(
-        nextHidden
-          ? 'Không ẩn được tài liệu. Vui lòng thử lại.'
-          : 'Không hiện lại được tài liệu. Vui lòng thử lại.',
-      )
-    }
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget || !canManage) return
-    const tok = getAccessToken()
-    const res = await fetch(`${API}/documents/${deleteTarget.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${tok}` },
-    })
-    if (res.ok) setDocs((prev) => prev.filter((d) => d.id !== deleteTarget.id))
-    setDeleteTarget(null)
-  }
-
   const extColor: Record<string, string> = {
     pdf: 'bg-red-50 text-red-600 border-red-100',
     pptx: 'bg-orange-50 text-orange-600 border-orange-100',
@@ -405,16 +421,28 @@ export function DocumentsPage() {
         title={canManage ? 'Quản lý Học liệu' : 'Thư viện Tài liệu'}
         subtitle={canManage ? 'Tải lên, ẩn/hiện và xóa tài liệu môn học' : 'Danh sách tài liệu học tập & tham khảo môn học'}
         actions={
-          canManage ? (
+          <div className="flex items-center gap-2">
             <button
-              id="btn-upload-doc"
-              onClick={() => setShowUpload(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition-colors"
+              id="btn-refresh-docs"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              title="Làm mới danh sách"
+              className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 text-xs font-semibold rounded-lg transition-colors"
             >
-              <UploadIcon width={14} height={14} />
-              + Tải lên tài liệu
+              <RefreshIcon width={14} height={14} className={isFetching ? 'animate-spin' : ''} />
+              {isFetching ? 'Đang làm mới…' : 'Làm mới'}
             </button>
-          ) : undefined
+            {canManage && (
+              <button
+                id="btn-upload-doc"
+                onClick={() => setShowUpload(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition-colors"
+              >
+                <UploadIcon width={14} height={14} />
+                + Tải lên tài liệu
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -428,10 +456,10 @@ export function DocumentsPage() {
           </Alert>
         )}
 
-        {visibilityError && (
+        {actionError && (
           <Alert variant="error" className="flex items-center justify-between">
-            <span>{visibilityError}</span>
-            <button onClick={() => setVisibilityError(null)} className="ml-4 font-bold text-red-600 hover:text-red-800 text-xs">✕</button>
+            <span>{actionError}</span>
+            <button onClick={() => setActionError(null)} className="ml-4 font-bold text-red-600 hover:text-red-800 text-xs">✕</button>
           </Alert>
         )}
 
@@ -525,10 +553,22 @@ export function DocumentsPage() {
         </div>
 
         {/* ── Content View (Grid or Table) ── */}
-        {loading ? (
+        {isPending ? (
           <div className="flex items-center justify-center py-24 bg-white rounded-2xl border border-slate-200 shadow-xs">
             <span className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" style={{ borderWidth: 3 }} />
           </div>
+        ) : isError ? (
+          /* Spec yêu cầu không để trắng màn hình: lỗi tải danh sách phải hiện rõ + cho thử lại. */
+          <Alert variant="error" className="flex items-center justify-between">
+            <span>Không tải được danh sách tài liệu. {error?.message ?? ''}</span>
+            <button
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              className="ml-4 px-3 py-1.5 text-xs font-semibold border border-red-200 text-red-700 rounded-lg hover:bg-red-100 disabled:opacity-60 transition-colors"
+            >
+              Thử lại
+            </button>
+          </Alert>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3 bg-white rounded-2xl border border-slate-200 shadow-xs text-slate-400">
             <FileTextIcon width={40} height={40} />
@@ -539,6 +579,7 @@ export function DocumentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((doc, idx) => {
               const palette = CARD_PALETTES[idx % CARD_PALETTES.length]
+              const togglingThis = visibility.isPending && visibility.variables?.id === doc.id
 
               return (
                 <div
@@ -597,8 +638,9 @@ export function DocumentsPage() {
                           <>
                             <button
                               title={doc.hidden ? 'Hiện tài liệu' : 'Ẩn tài liệu'}
-                              onClick={() => toggleVisibility(doc)}
-                              className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                              onClick={() => visibility.mutate({ id: doc.id, hidden: !doc.hidden })}
+                              disabled={togglingThis}
+                              className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-40 transition-colors"
                             >
                               {doc.hidden ? <EyeIcon width={14} height={14} /> : <EyeOffIcon width={14} height={14} />}
                             </button>
@@ -612,7 +654,7 @@ export function DocumentsPage() {
                           </>
                         )}
                         <button
-                          onClick={() => handleDownload(doc)}
+                          onClick={() => download.mutate(doc)}
                           className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:text-indigo-700 transition-colors text-xs ml-1"
                         >
                           Tải xuống <DownloadIcon width={13} height={13} />
@@ -641,6 +683,7 @@ export function DocumentsPage() {
               <tbody>
                 {filtered.map((doc, i) => {
                   const st = STATUS_MAP[doc.status] ?? { label: doc.status, cls: 'bg-slate-100 text-slate-600' }
+                  const togglingThis = visibility.isPending && visibility.variables?.id === doc.id
                   return (
                     <tr
                       key={doc.id}
@@ -690,15 +733,16 @@ export function DocumentsPage() {
                           {canManage && (
                             <button
                               title={doc.hidden ? 'Hiện tài liệu' : 'Ẩn tài liệu'}
-                              onClick={() => toggleVisibility(doc)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              onClick={() => visibility.mutate({ id: doc.id, hidden: !doc.hidden })}
+                              disabled={togglingThis}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-40 transition-colors"
                             >
                               {doc.hidden ? <EyeIcon width={15} height={15} /> : <EyeOffIcon width={15} height={15} />}
                             </button>
                           )}
                           <button
                             title="Tải xuống"
-                            onClick={() => handleDownload(doc)}
+                            onClick={() => download.mutate(doc)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                           >
                             <DownloadIcon width={15} height={15} />
@@ -724,7 +768,7 @@ export function DocumentsPage() {
         )}
 
         {/* ── Footer stats ── */}
-        {!loading && docs.length > 0 && (
+        {!isPending && !isError && docs.length > 0 && (
           <p className="text-xs text-slate-400">
             {docs.length} tài liệu &bull; {activeCount} đang hoạt động &bull; {hiddenCount} đã ẩn
           </p>
@@ -735,7 +779,7 @@ export function DocumentsPage() {
       {showUpload && (
         <UploadModal
           onClose={() => setShowUpload(false)}
-          onUploaded={(doc) => { setDocs((prev) => [doc, ...prev]); setShowUpload(false) }}
+          onUploaded={() => { setShowUpload(false); void invalidateDocs() }}
         />
       )}
       {deleteTarget && (
