@@ -16,6 +16,7 @@
 import { useEffect, useState, type ReactNode, type ComponentType, type SVGProps } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
+import { UserAvatar } from '@/components/ui'
 import {
   BrandMark,
   ChatBubbleIcon,
@@ -109,19 +110,6 @@ const ADMIN_NAV: NavGroup[] = [
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function getInitials(name: string | undefined | null): string {
-  if (!name) return '?'
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
-
-/** Màu avatar theo role */
-function avatarColor(role: string | undefined): string {
-  if (role === 'ADMIN') return 'bg-indigo-600'
-  return 'bg-teal-600' // TEACHER
-}
-
 /** Label + style của role badge dưới logo */
 function roleBadge(role: string | undefined): { label: string; className: string } {
   if (role === 'ADMIN') return { label: 'SUPER ADMIN', className: 'text-red-500' }
@@ -146,7 +134,6 @@ function Sidebar({
 
   const role = user?.role
   const navGroups = role === 'ADMIN' ? ADMIN_NAV : TEACHER_NAV
-  const initials = user ? getInitials(user.fullName ?? (user as any).full_name) : '?'
   const badge = roleBadge(role)
 
   /** Dòng phụ dưới tên: khoa (TEACHER) hoặc email (ADMIN) */
@@ -251,12 +238,8 @@ function Sidebar({
           onClick={() => setMenuOpen((v) => !v)}
           className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-slate-50 transition-colors text-left"
         >
-          {/* Avatar initials */}
-          <div
-            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold ${avatarColor(role)}`}
-          >
-            {initials}
-          </div>
+          {/* User Avatar */}
+          <UserAvatar user={user} size="sm" />
 
           {/* Tên + dòng phụ */}
           <div className="flex-1 min-w-0">

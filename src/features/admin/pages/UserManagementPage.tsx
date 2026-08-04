@@ -61,6 +61,16 @@ function IconRotateCcw({ className }: { className?: string }) {
   )
 }
 
+function IconDownload({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+
 // ─── Status Map ────────────────────────────────────────────────────────
 const STATUS_MAP: Record<UserStatus, { label: string; cls: string; dot: string }> = {
   ACTIVE: {
@@ -97,6 +107,7 @@ export function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
 
   // Filters state
   const [search, setSearch] = useState('')
@@ -143,6 +154,42 @@ export function UserManagementPage() {
       setLoading(false)
     }
   }, [roleFilter, statusFilter, page, limit, search])
+
+  // Export Users as CSV
+  const handleExportCSV = async () => {
+    setExporting(true)
+    try {
+      const tok = getAccessToken()
+      const roleParam = roleFilter === 'ALL' ? '' : `&role=${roleFilter}`
+      const statusParam = statusFilter === 'ALL' ? '' : `&status=${statusFilter}`
+      const searchParam = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''
+
+      const res = await fetch(
+        `${API}/admin/users/export?${roleParam}${statusParam}${searchParam}`.replace('?&', '?'),
+        {
+          headers: { Authorization: `Bearer ${tok}` },
+        }
+      )
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `users_export_${new Date().toISOString().slice(0, 10)}.csv`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+      } else {
+        alert('Xuất danh sách người dùng CSV thất bại.')
+      }
+    } catch (err) {
+      console.error('Lỗi khi xuất CSV:', err)
+      alert('Đã xảy ra lỗi hệ thống khi xuất tệp CSV.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     fetchUsers()
@@ -324,6 +371,20 @@ export function UserManagementPage() {
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-xs shrink-0"
             >
               Tìm kiếm
+            </button>
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              disabled={exporting}
+              className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-colors shadow-xs flex items-center gap-1.5 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Xuất danh sách người dùng đã lọc ra file CSV"
+            >
+              {exporting ? (
+                <span className="w-3 h-3 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <IconDownload className="w-3.5 h-3.5" />
+              )}
+              Xuất CSV
             </button>
           </form>
         </div>

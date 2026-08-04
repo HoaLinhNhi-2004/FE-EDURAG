@@ -33,6 +33,7 @@ import {
   UserIcon,
 } from '@/components/ui/icons'
 import { useAuth } from '@/store/auth'
+import { UserAvatar } from '@/components/ui'
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
@@ -40,15 +41,6 @@ const NAV_ITEMS = [
   { label: 'Lịch sử chat', to: '/student/history', Icon: ClockIcon },
   { label: 'Thư viện học liệu', to: '/student/library', Icon: DocumentIcon },
 ] as const
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-/** Lấy 2 chữ cái đầu từ fullName (VD: "Nguyễn Văn An" → "NA") */
-function getInitials(name: string | undefined | null): string {
-  if (!name) return '?'
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
 
 // ─── Sidebar component ────────────────────────────────────────────────────────
 interface SidebarProps {
@@ -64,7 +56,6 @@ function Sidebar({ pathname, className = '', onNavigate }: SidebarProps) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const initials = user ? getInitials(user.fullName ?? (user as any).full_name) : '?'
 
   function handleLogout() {
     logout()
@@ -148,10 +139,8 @@ function Sidebar({ pathname, className = '', onNavigate }: SidebarProps) {
           onClick={() => setMenuOpen((v) => !v)}
           className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-slate-50 transition-colors text-left"
         >
-          {/* Avatar initials */}
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-semibold">
-            {initials}
-          </div>
+          {/* User Avatar */}
+          <UserAvatar user={user} size="sm" />
 
           {/* Name + student code — hiện đầy đủ, không truncate */}
           <div className="flex-1 min-w-0">
