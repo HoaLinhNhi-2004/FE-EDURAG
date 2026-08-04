@@ -209,19 +209,27 @@ function AvatarModal({ profile, onClose }: AvatarModalProps) {
         canvas.width = 512
         canvas.height = 512
         const ctx = canvas.getContext('2d')
-        if (ctx) {
-          ctx.fillStyle = '#ffffff'
-          ctx.fillRect(0, 0, 512, 512)
-          ctx.drawImage(img, 0, 0, 512, 512)
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const file = new File([blob], filename, { type: 'image/png' })
-              uploadMutation.mutate(file)
-            }
-            URL.revokeObjectURL(url)
-            setIsConverting(false)
-          }, 'image/png')
+        if (!ctx) {
+          // Không lấy được canvas context thì phải thoát trạng thái đang xử lý,
+          // nếu không overlay loading sẽ kẹt vĩnh viễn.
+          URL.revokeObjectURL(url)
+          setIsConverting(false)
+          setErrorMsg('Trình duyệt không hỗ trợ xử lý ảnh minh họa.')
+          return
         }
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, 512, 512)
+        ctx.drawImage(img, 0, 0, 512, 512)
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], filename, { type: 'image/png' })
+            uploadMutation.mutate(file)
+          } else {
+            setErrorMsg('Không thể chuyển đổi hình minh họa.')
+          }
+          URL.revokeObjectURL(url)
+          setIsConverting(false)
+        }, 'image/png')
       }
       img.onerror = () => {
         URL.revokeObjectURL(url)
@@ -414,7 +422,7 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
           title="Thay đổi ảnh đại diện"
         >
           <div className="bg-white rounded-full p-[2px]">
-            <UserAvatar user={profile} size="xl" className="!w-24 !h-24" />
+            <UserAvatar user={profile} size="xl" />
           </div>
           {/* Camera icon in a white circle at bottom-right */}
           <div className="absolute bottom-1 right-1 bg-white rounded-full p-1.5 shadow-md border border-slate-200 text-blue-600 transition-transform duration-200 group-hover:scale-110">

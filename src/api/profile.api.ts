@@ -15,16 +15,14 @@ export const profileApi = {
   changePassword: (body: ChangePasswordRequest) =>
     apiClient.put<ApiResponse<null>>('/profile/password', body).then((r) => r.data),
 
-  // POST /api/profile/avatar — upload/thay thế avatar của chính mình
+  // POST /api/profile/avatar — upload/thay thế avatar của chính mình.
+  // Không set Content-Type thủ công: axios tự đặt multipart/form-data kèm boundary
+  // cho FormData, set tay sẽ thiếu boundary (xem chú thích trong api/client.ts).
   uploadAvatar: (file: File) => {
     const formData = new FormData()
     formData.append('avatar', file)
     return apiClient
-      .post<ApiResponse<AvatarDescriptor>>('/profile/avatar', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
+      .post<ApiResponse<AvatarDescriptor>>('/profile/avatar', formData)
       .then((r) => r.data.data)
   },
 

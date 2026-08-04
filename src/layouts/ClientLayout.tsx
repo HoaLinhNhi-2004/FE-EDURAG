@@ -56,7 +56,6 @@ function Sidebar({ pathname, className = '', onNavigate }: SidebarProps) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
-
   function handleLogout() {
     logout()
     navigate('/login', { replace: true })
