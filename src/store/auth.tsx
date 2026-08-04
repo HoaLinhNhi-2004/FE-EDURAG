@@ -23,7 +23,7 @@ import { getAccessToken, setAccessToken, clearAccessToken } from '@/utils/token'
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
 
-interface AuthContextValue {
+export interface AuthContextValue {
   user: User | null
   status: AuthStatus
   isAuthenticated: boolean

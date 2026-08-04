@@ -41,3 +41,5 @@ export {
   // Brand
   BrandMark,
 } from './icons'
+export { UserAvatar } from './UserAvatar'
+

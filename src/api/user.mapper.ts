@@ -32,6 +32,12 @@ export interface RawUser {
   created_at?: string | null
   documentCount?: number | null
   document_count?: number | null
+  avatarAvailable?: boolean | null
+  avatar_available?: boolean | null
+  avatarUrl?: string | null
+  avatar_url?: string | null
+  avatarMimeType?: string | null
+  avatar_mime_type?: string | null
 }
 
 /**
@@ -59,5 +65,8 @@ export function mapBackendUser(raw: RawUser | null | undefined): User | null {
     // BE đặt tên ngày tạo tài khoản là createdAt/created_at tùy endpoint.
     joinDate: raw.joinDate ?? raw.createdAt ?? raw.created_at ?? undefined,
     documentCount: raw.documentCount ?? raw.document_count ?? undefined,
+    avatarAvailable: raw.avatarAvailable ?? raw.avatar_available ?? false,
+    avatarUrl: raw.avatarUrl ?? raw.avatar_url ?? null,
+    avatarMimeType: raw.avatarMimeType ?? raw.avatar_mime_type ?? null,
   }
 }

@@ -23,6 +23,9 @@ export interface User {
   joinDate?: string
   /** Số lượng tài liệu đã upload */
   documentCount?: number
+  avatarAvailable?: boolean
+  avatarUrl?: string | null
+  avatarMimeType?: string | null
 }
 
 export interface LoginRequest {
@@ -93,4 +96,10 @@ export interface UpdateProfileRequest {
 export interface VerifyOtpRequest {
   email: string
   otpCode: string
+}
+
+export interface AvatarDescriptor {
+  avatarAvailable: boolean
+  avatarUrl: string | null
+  avatarMimeType: string | null
 }
