@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getAccessToken } from '@/utils/token'
-import type { User, Role, UserStatus } from '@/types'
+import type { User, Role, UserStatus, ApiError } from '@/types'
 import { mapBackendUser, type RawUser } from '@/api/user.mapper'
+import { adminApi } from '@/api/admin.api'
 import { SearchIcon } from '@/components/ui/icons'
 import { PageHeader } from '@/components/ui'
 import { useAuth } from '@/store/auth'
@@ -108,6 +109,7 @@ export function UserManagementPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
 
   // Filters state
   const [search, setSearch] = useState('')
@@ -155,37 +157,26 @@ export function UserManagementPage() {
     }
   }, [roleFilter, statusFilter, page, limit, search])
 
-  // Export Users as CSV
+  // Export Users as CSV — đi qua apiClient để 401 được interceptor đưa về /login.
   const handleExportCSV = async () => {
     setExporting(true)
+    setExportError('')
     try {
-      const tok = getAccessToken()
-      const roleParam = roleFilter === 'ALL' ? '' : `&role=${roleFilter}`
-      const statusParam = statusFilter === 'ALL' ? '' : `&status=${statusFilter}`
-      const searchParam = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''
-
-      const res = await fetch(
-        `${API}/admin/users/export?${roleParam}${statusParam}${searchParam}`.replace('?&', '?'),
-        {
-          headers: { Authorization: `Bearer ${tok}` },
-        }
-      )
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `users_export_${new Date().toISOString().slice(0, 10)}.csv`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        window.URL.revokeObjectURL(url)
-      } else {
-        alert('Xuất danh sách người dùng CSV thất bại.')
-      }
+      const blob = await adminApi.exportUsersCsv({
+        role: roleFilter,
+        status: statusFilter,
+        search,
+      })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `users_export_${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
     } catch (err) {
-      console.error('Lỗi khi xuất CSV:', err)
-      alert('Đã xảy ra lỗi hệ thống khi xuất tệp CSV.')
+      setExportError((err as ApiError).message || 'Xuất danh sách người dùng CSV thất bại.')
     } finally {
       setExporting(false)
     }
@@ -388,6 +379,24 @@ export function UserManagementPage() {
             </button>
           </form>
         </div>
+
+        {/* Lỗi xuất CSV — hiện tại chỗ, không dùng alert() chặn luồng */}
+        {exportError && (
+          <div
+            role="alert"
+            className="flex items-start justify-between gap-3 px-4 py-2.5 bg-red-50 border border-red-200/60 rounded-xl text-xs font-semibold text-red-600"
+          >
+            <span>{exportError}</span>
+            <button
+              type="button"
+              onClick={() => setExportError('')}
+              aria-label="Đóng thông báo lỗi"
+              className="shrink-0 text-red-400 hover:text-red-600 transition-colors"
+            >
+              <IconX className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* ── Table Card ── */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col flex-1 min-h-0">
