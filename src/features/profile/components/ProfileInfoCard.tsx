@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -23,18 +23,6 @@ import { updateProfileSchema, type UpdateProfileFormValues } from '../schemas'
 const XIcon = ({ className = 'w-5 h-5' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-  </svg>
-)
-
-const ThreeDotsIcon = ({ className = 'w-5 h-5' }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-  </svg>
-)
-
-const PaintPaletteIcon = ({ className = 'w-5 h-5' }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1-1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 1 1.597-.326l1.414 1.414a1.15 1.15 0 0 1-.326 1.597l-5.814 3.876a15.99 15.99 0 0 1-4.648 4.764m-1.222-1.222 1.222 1.222m-1.222-1.222a15.999 15.999 0 0 0 3.394-1.622m-5.04-5.045a15.996 15.996 0 0 1 1.622-3.395m0 0a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.15 1.15 0 0 1 1.596-.326l1.414 1.414a1.15 1.15 0 0 1-.326 1.597l-5.814 3.876a15.99 15.99 0 0 1-4.648 4.764" />
   </svg>
 )
 
@@ -152,7 +140,8 @@ function AvatarModal({ profile, onClose }: AvatarModalProps) {
         if (!oldUser) return oldUser
         return {
           ...oldUser,
-          avatarAvailable: avatarData?.avatarAvailable ?? false,
+          // Upload đã thành công nên mặc định là có avatar, kể cả khi BE không trả descriptor.
+          avatarAvailable: avatarData?.avatarAvailable ?? true,
           avatarUrl: avatarData?.avatarUrl ?? null,
           avatarMimeType: avatarData?.avatarMimeType ?? null,
         }
@@ -201,6 +190,8 @@ function AvatarModal({ profile, onClose }: AvatarModalProps) {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    // Xoá value ngay để lần sau chọn lại đúng file vừa lỗi vẫn bắn onChange.
+    e.target.value = ''
     if (file) {
       validateAndUpload(file)
     }
@@ -244,19 +235,46 @@ function AvatarModal({ profile, onClose }: AvatarModalProps) {
     }
   }
 
+  // Đang gọi API thì khoá đường thoát để không đóng modal giữa chừng.
+  const isBusy = uploadMutation.isPending || deleteMutation.isPending || isConverting
+
+  // Đóng bằng phím Esc (UC 5 — mọi popup phải thoát được bằng bàn phím).
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isBusy) onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isBusy, onClose])
+
   return (
-    <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="avatar-modal-title"
+      onClick={(e) => {
+        // Chỉ đóng khi bấm đúng lớp nền, không phải bấm xuyên từ nội dung modal.
+        if (e.target === e.currentTarget && !isBusy) onClose()
+      }}
+      className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+    >
       <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl p-6 relative overflow-hidden flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors">
+        <div className="flex items-center border-b border-slate-100 pb-3">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Đóng"
+            className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors"
+          >
             <XIcon className="w-5 h-5 text-slate-500" />
           </button>
-          <span className="text-base font-semibold text-slate-800">Thêm ảnh hồ sơ</span>
-          <button className="p-2 -mr-2 rounded-full hover:bg-slate-100 transition-colors">
-            <ThreeDotsIcon className="w-5 h-5 text-slate-500" />
-          </button>
+          <span id="avatar-modal-title" className="flex-1 text-center text-base font-semibold text-slate-800">
+            Thêm ảnh hồ sơ
+          </span>
+          {/* Ô trống cân đối với nút đóng để tiêu đề nằm đúng giữa */}
+          <span className="w-9 shrink-0" aria-hidden="true" />
         </div>
 
         {/* Error Alert */}
@@ -293,12 +311,8 @@ function AvatarModal({ profile, onClose }: AvatarModalProps) {
             className="hidden"
           />
 
-          <button className="flex items-center gap-3.5 w-full px-3 py-3 hover:bg-slate-50 active:bg-slate-100 transition-colors rounded-xl text-left text-slate-700">
-            <PaintPaletteIcon className="w-5 h-5 text-slate-500" />
-            <span className="text-sm font-medium">Xem thêm hình minh họa</span>
-          </button>
-
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-3.5 w-full px-3 py-3 hover:bg-slate-50 active:bg-slate-100 transition-colors rounded-xl text-left text-slate-700"
           >
@@ -318,7 +332,7 @@ function AvatarModal({ profile, onClose }: AvatarModalProps) {
         </div>
 
         {/* Loading Overlay */}
-        {(uploadMutation.isPending || deleteMutation.isPending || isConverting) && (
+        {isBusy && (
           <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center z-10">
             <div className="flex flex-col items-center gap-2">
               <Spinner className="text-indigo-600 w-8 h-8" />
@@ -337,6 +351,7 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
   const [saved, setSaved] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [avatarModalOpen, setAvatarModalOpen] = useState(false)
+  const closeAvatarModal = useCallback(() => setAvatarModalOpen(false), [])
 
   const {
     register,
@@ -354,7 +369,18 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
   const mutation = useMutation({
     mutationFn: profileApi.update,
     onSuccess: (updated) => {
-      queryClient.setQueryData(['auth', 'me'], updated)
+      // PUT /profile không chắc trả kèm thông tin avatar. Nếu ghi đè thẳng thì avatar
+      // sẽ biến mất khỏi header + sidebar ngay sau khi lưu, nên giữ lại giá trị cũ
+      // cho những field mà response không nhắc tới. Phản ánh ngay + cập nhật header.
+      queryClient.setQueryData<User>(['auth', 'me'], (oldUser) => {
+        if (!updated) return oldUser
+        return {
+          ...updated,
+          avatarAvailable: updated.avatarAvailable ?? oldUser?.avatarAvailable,
+          avatarUrl: updated.avatarUrl ?? oldUser?.avatarUrl ?? null,
+          avatarMimeType: updated.avatarMimeType ?? oldUser?.avatarMimeType ?? null,
+        }
+      })
       setSaved(true)
       setApiError(null)
     },
@@ -477,10 +503,7 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
 
       {/* Avatar Management Modal Popup */}
       {avatarModalOpen && (
-        <AvatarModal
-          profile={profile}
-          onClose={() => setAvatarModalOpen(false)}
-        />
+        <AvatarModal profile={profile} onClose={closeAvatarModal} />
       )}
     </section>
   )
