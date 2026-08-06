@@ -57,7 +57,9 @@ export function mapBackendUser(raw: RawUser | null | undefined): User | null {
     authVersion: raw.authVersion ?? raw.auth_version ?? 0,
     phone: raw.phone,
     studentCode: raw.studentCode ?? raw.student_code ?? undefined,
-    dateOfBirth: raw.dateOfBirth ?? raw.date_of_birth ?? undefined,
+    dateOfBirth: (raw.dateOfBirth ?? raw.date_of_birth)
+      ? String(raw.dateOfBirth ?? raw.date_of_birth).split('T')[0]
+      : undefined,
     academicTitle: raw.academicTitle ?? raw.academic_title,
     degree: raw.degree,
     department: raw.department,

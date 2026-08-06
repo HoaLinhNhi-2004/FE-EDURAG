@@ -163,11 +163,11 @@ export function LibraryPage() {
   const handleDownload = useCallback((doc: CourseDocument) => {
     const tok = getAccessToken()
     setDownloadError(null)
-    fetch(`${API}/library/documents/${doc.id}/source`, {
+    fetch(`${API}/library/documents/${doc.id}/download`, {
       headers: tok ? { Authorization: `Bearer ${tok}` } : {},
     })
       .then(async (res) => {
-        if (res.status === 409) throw new Error('ORIGINAL_SOURCE_UNAVAILABLE')
+        if (res.status === 409) throw new Error('CANONICAL_DOWNLOAD_UNAVAILABLE')
         if (!res.ok) throw new Error('Download failed')
         return res.blob()
       })
@@ -182,8 +182,8 @@ export function LibraryPage() {
         window.URL.revokeObjectURL(url)
       })
       .catch((e: Error) => {
-        if (e.message === 'ORIGINAL_SOURCE_UNAVAILABLE') {
-          setDownloadError('File gốc hiện không khả dụng (ORIGINAL_SOURCE_UNAVAILABLE).')
+        if (e.message === 'CANONICAL_DOWNLOAD_UNAVAILABLE') {
+          setDownloadError('File tải hiện không khả dụng (CANONICAL_DOWNLOAD_UNAVAILABLE).')
         } else {
           setDownloadError('Không tải được file tài liệu. Vui lòng thử lại sau.')
         }

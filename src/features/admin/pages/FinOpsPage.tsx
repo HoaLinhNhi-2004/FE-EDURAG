@@ -11,6 +11,7 @@ interface UsageTotals {
   completionTokens: number
   totalTokens: number
 }
+
 interface UsageBreakdown {
   provider: string
   model: string
@@ -18,14 +19,18 @@ interface UsageBreakdown {
   currency: string
   calls: number
   totalTokens: number
-  estimatedCost: number | null
+  estimatedCost: number | string | null
 }
+
 interface DashboardSummary {
+  range: { from: string | null; to: string | null }
+  documents: Array<{ processing_status: string; visibility_status: string; total: number }>
+  chat: { sessions: number; messages: number; citations: number }
   usage: {
+    scope: string
     totals: UsageTotals
     breakdown: UsageBreakdown[]
   }
-  chat: { sessions: number; messages: number; citations: number }
 }
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -46,6 +51,12 @@ function IconSettings({ className }: { className?: string }) {
 }
 function IconEdit({ className }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+}
+function IconLayers({ className }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
+}
+function IconMessageSquare({ className }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -137,8 +148,8 @@ function fmtTokens(n: number): string {
   return String(n)
 }
 function fmtCost(n: number | null | undefined): string {
-  if (n == null) return '$0.00'
-  return '$' + n.toFixed(2)
+  if (n == null || isNaN(n)) return '$0.00'
+  return '$' + n.toFixed(4)
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -146,7 +157,7 @@ export function FinOpsPage() {
   const [period, setPeriod] = useState<Period>('month')
   const [showEditBudget, setShowEditBudget] = useState(false)
   const [budget, setBudget] = useState<BudgetConfig>({
-    limit: 7,
+    limit: 10,
     warnAt: 80,
     hardLimit: 100,
     action: 'Khóa API',
@@ -189,12 +200,13 @@ export function FinOpsPage() {
   // Lấy số liệu từ BE
   const totals = summary?.usage?.totals
   const breakdown = summary?.usage?.breakdown ?? []
+  const chatStats = summary?.chat
 
   const periodLabel = period === 'day' ? 'Hôm nay' : period === 'month' ? 'Tháng này' : 'Năm nay'
 
   // Tổng chi phí ước tính từ breakdown
   const estimatedCost = breakdown.reduce(
-    (sum, r) => sum + (r.estimatedCost ?? 0),
+    (sum, r) => sum + Number(r.estimatedCost ?? 0),
     0
   )
 
@@ -222,7 +234,7 @@ export function FinOpsPage() {
     <div className="flex flex-col h-full min-h-0 flex-1 overflow-hidden bg-slate-50">
       <PageHeader
         title="FinOps & Quản lý Token LLM"
-        subtitle="Thống kê token tiêu thụ và quản lý ngân sách API"
+        subtitle="Thống kê tiêu thụ Token, phân tích chi phí LLM và quản lý ngân sách hệ thống"
         actions={
           <div className="flex items-center bg-slate-100 border border-slate-200 rounded-lg p-0.5 overflow-hidden">
             {PERIODS.map(p => (
@@ -241,16 +253,16 @@ export function FinOpsPage() {
           </div>
         }
       />
-      <div className="flex-1 min-h-0 overflow-y-auto p-6">
+      <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
 
       {summaryError && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
           {summaryError}
         </div>
       )}
 
-      {/* Stat cards — data thật từ BE */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Stat cards — khớp chính xác với BE totals */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Prompt tokens */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center mb-3">
@@ -262,6 +274,7 @@ export function FinOpsPage() {
           <p className="text-xs text-slate-500 mt-0.5">Tổng Prompt Tokens</p>
           <p className="text-xs text-indigo-500 font-semibold mt-1.5">{periodLabel}</p>
         </div>
+
         {/* Completion tokens */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center mb-3">
@@ -273,6 +286,7 @@ export function FinOpsPage() {
           <p className="text-xs text-slate-500 mt-0.5">Tổng Completion Tokens</p>
           <p className="text-xs text-indigo-500 font-semibold mt-1.5">{periodLabel}</p>
         </div>
+
         {/* Chi phí thực tế */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center mb-3">
@@ -284,6 +298,7 @@ export function FinOpsPage() {
           <p className="text-xs text-slate-500 mt-0.5">Chi phí ước tính</p>
           <p className="text-xs text-emerald-600 font-semibold mt-1.5">{totals?.calls ?? 0} LLM calls</p>
         </div>
+
         {/* Ngân sách còn lại */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center mb-3">
@@ -292,6 +307,111 @@ export function FinOpsPage() {
           <p className="text-[22px] font-bold text-slate-900">${remaining}</p>
           <p className="text-xs text-slate-500 mt-0.5">Ngân sách còn lại</p>
           <p className={`text-xs font-semibold mt-1.5 ${remainColor}`}>Còn {remainingPct}%</p>
+        </div>
+      </div>
+
+      {/* Overview từ BE (System metrics & LLM Scope) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+            <IconMessageSquare className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 font-medium">Phiên trò chuyện (Chat Sessions)</p>
+            <p className="text-lg font-bold text-slate-800">{loadingSummary ? '...' : chatStats?.sessions ?? 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+            <IconZap className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 font-medium">Tin nhắn được xử lý (Messages)</p>
+            <p className="text-lg font-bold text-slate-800">{loadingSummary ? '...' : chatStats?.messages ?? 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+            <IconLayers className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 font-medium">Nguồn trích dẫn (Citations)</p>
+            <p className="text-lg font-bold text-slate-800">{loadingSummary ? '...' : chatStats?.citations ?? 0}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Chi tiết tiêu thụ theo Provider / Model (breakdown từ BE) */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-800">Chi tiết tiêu thụ theo Model (LLM Breakdown)</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Dữ liệu trực tiếp từ endpoint GET /api/admin/dashboard/summary</p>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
+            Scope: {summary?.usage?.scope ?? 'LLM_CALLS_ONLY'}
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <tr>
+                <th className="px-6 py-3">Nhà cung cấp (Provider)</th>
+                <th className="px-6 py-3">Model</th>
+                <th className="px-6 py-3">Trạng thái</th>
+                <th className="px-6 py-3 text-right">Số cuộc gọi</th>
+                <th className="px-6 py-3 text-right">Tổng Tokens</th>
+                <th className="px-6 py-3 text-right">Chi phí ước tính</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loadingSummary ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-slate-400">
+                    Đang tải dữ liệu tiêu thụ LLM...
+                  </td>
+                </tr>
+              ) : breakdown.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-slate-400">
+                    Chưa có cuộc gọi LLM nào trong khoảng thời gian này.
+                  </td>
+                </tr>
+              ) : (
+                breakdown.map((row, idx) => (
+                  <tr key={`${row.provider}-${row.model}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-6 py-4 font-semibold text-slate-800 capitalize">
+                      {row.provider}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 text-xs font-mono font-medium">
+                        {row.model}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                        row.status === 'SUCCEEDED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                      }`}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right font-medium text-slate-700">
+                      {row.calls.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-right font-mono text-slate-700">
+                      {row.totalTokens.toLocaleString()} ({fmtTokens(row.totalTokens)})
+                    </td>
+                    <td className="px-6 py-4 text-right font-mono font-bold text-slate-800">
+                      {fmtCost(Number(row.estimatedCost ?? 0))} <span className="text-[10px] text-slate-400">{row.currency}</span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -313,7 +433,7 @@ export function FinOpsPage() {
             </button>
           </div>
         </div>
-        <p className="text-xs text-slate-400 mb-4">Giới hạn: ${budget.limit.toFixed(2)} • Đã dùng: ${usedAmount.toFixed(2)}</p>
+        <p className="text-xs text-slate-400 mb-4">Giới hạn: ${budget.limit.toFixed(2)} • Đã dùng: ${usedAmount.toFixed(4)}</p>
 
         {/* Progress bar */}
         <div className="relative mb-1">
