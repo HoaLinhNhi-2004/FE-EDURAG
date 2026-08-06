@@ -269,7 +269,6 @@ export function DocumentsPage() {
   const [docs, setDocs] = useState<CourseDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'SLIDE' | 'TEXTBOOK' | 'LECTURE'>('ALL')
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [showUpload, setShowUpload] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<CourseDocument | null>(null)
@@ -296,7 +295,7 @@ export function DocumentsPage() {
     const tok = getAccessToken()
     const fileUrl = canManage
       ? `${API}/documents/${doc.id}/file`
-      : `${API}/library/documents/${doc.id}/source`
+      : `${API}/library/documents/${doc.id}/download`
     
     setDownloadError(null)
     fetch(fileUrl, { headers: { Authorization: `Bearer ${tok}` } })
@@ -317,25 +316,9 @@ export function DocumentsPage() {
       .catch(() => setDownloadError('Không tải được file tài liệu. Vui lòng thử lại sau.'))
   }
 
-  const slideCount = docs.filter(d => (d.docType ?? '').toLowerCase().includes('slide') || d.fileType === 'pptx').length
-  const textbookCount = docs.filter(d => (d.docType ?? '').toLowerCase().includes('giáo trình')).length
-  const lectureCount = docs.filter(d => (d.docType ?? '').toLowerCase().includes('bài giảng')).length
-
   const filtered = docs.filter((d) => {
     const q = search.toLowerCase()
-    const matchSearch = d.name.toLowerCase().includes(q) || d.courseName.toLowerCase().includes(q) || (d.docType ?? '').toLowerCase().includes(q) || (d.author ?? '').toLowerCase().includes(q) || (d.title ?? '').toLowerCase().includes(q)
-    if (!matchSearch) return false
-
-    if (selectedCategory === 'SLIDE') {
-      return (d.docType ?? '').toLowerCase().includes('slide') || d.fileType === 'pptx'
-    }
-    if (selectedCategory === 'TEXTBOOK') {
-      return (d.docType ?? '').toLowerCase().includes('giáo trình')
-    }
-    if (selectedCategory === 'LECTURE') {
-      return (d.docType ?? '').toLowerCase().includes('bài giảng')
-    }
-    return true
+    return d.name.toLowerCase().includes(q) || d.courseName.toLowerCase().includes(q) || (d.docType ?? '').toLowerCase().includes(q) || (d.author ?? '').toLowerCase().includes(q) || (d.title ?? '').toLowerCase().includes(q)
   })
 
   const activeCount = docs.filter((d) => !d.hidden).length
@@ -404,18 +387,6 @@ export function DocumentsPage() {
       <PageHeader
         title={canManage ? 'Quản lý Học liệu' : 'Thư viện Tài liệu'}
         subtitle={canManage ? 'Tải lên, ẩn/hiện và xóa tài liệu môn học' : 'Danh sách tài liệu học tập & tham khảo môn học'}
-        actions={
-          canManage ? (
-            <button
-              id="btn-upload-doc"
-              onClick={() => setShowUpload(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition-colors"
-            >
-              <UploadIcon width={14} height={14} />
-              + Tải lên tài liệu
-            </button>
-          ) : undefined
-        }
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto p-6">
@@ -435,7 +406,7 @@ export function DocumentsPage() {
           </Alert>
         )}
 
-        {/* ── Toolbar: Search & Filter Pills & View Mode ── */}
+        {/* ── Toolbar: Search & Action Buttons & View Mode ── */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Search Box */}
           <div className="relative w-full sm:w-72">
@@ -448,60 +419,9 @@ export function DocumentsPage() {
             />
           </div>
 
-          {/* Filter Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-            <button
-              onClick={() => setSelectedCategory('ALL')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                selectedCategory === 'ALL'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              Tất cả ({docs.length})
-            </button>
-            <button
-              onClick={() => setSelectedCategory('SLIDE')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                selectedCategory === 'SLIDE'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <span>🖼️</span> Slide bài giảng
-              <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${selectedCategory === 'SLIDE' ? 'bg-white/30 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                {slideCount}
-              </span>
-            </button>
-            <button
-              onClick={() => setSelectedCategory('TEXTBOOK')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                selectedCategory === 'TEXTBOOK'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <span>📖</span> Giáo trình
-              <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${selectedCategory === 'TEXTBOOK' ? 'bg-white/30 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                {textbookCount}
-              </span>
-            </button>
-            <button
-              onClick={() => setSelectedCategory('LECTURE')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                selectedCategory === 'LECTURE'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <span>📄</span> Bài giảng
-              <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${selectedCategory === 'LECTURE' ? 'bg-white/30 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                {lectureCount}
-              </span>
-            </button>
-
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             {/* View Switcher */}
-            <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 ml-auto shadow-xs">
+            <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-xs">
               <button
                 onClick={() => setViewMode('grid')}
                 title="Dạng thẻ"
@@ -521,6 +441,17 @@ export function DocumentsPage() {
                 <ListIcon width={15} height={15} />
               </button>
             </div>
+
+            {canManage && (
+              <button
+                id="btn-upload-doc"
+                onClick={() => setShowUpload(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                <UploadIcon width={14} height={14} />
+                <span>+ Tải lên tài liệu</span>
+              </button>
+            )}
           </div>
         </div>
 

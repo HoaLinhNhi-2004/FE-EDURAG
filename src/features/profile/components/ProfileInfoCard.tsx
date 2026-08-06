@@ -369,7 +369,7 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
     resolver: zodResolver(updateProfileSchema),
     values: {
       fullName: profile.fullName,
-      dateOfBirth: profile.dateOfBirth ?? '',
+      dateOfBirth: profile.dateOfBirth ? String(profile.dateOfBirth).split('T')[0] : '',
       phone: profile.phone ?? '',
     },
   })
@@ -459,7 +459,7 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
         <FormField label="Họ và tên" htmlFor="fullName" required error={errors.fullName?.message}>
-          <Input id="fullName" leftIcon={<UserIcon />} invalid={!!errors.fullName} {...register('fullName')} />
+          <Input id="fullName" maxLength={50} leftIcon={<UserIcon />} invalid={!!errors.fullName} {...register('fullName')} />
         </FormField>
 
         <FormField label="Email" htmlFor="email" hint="Email không thể thay đổi">
@@ -486,6 +486,7 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
           <Input
             id="dateOfBirth"
             type="date"
+            max={new Date().toISOString().split('T')[0]}
             leftIcon={<CalendarIcon />}
             invalid={!!errors.dateOfBirth}
             {...register('dateOfBirth')}
@@ -495,6 +496,8 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
         <FormField label="Số điện thoại" htmlFor="phone" error={errors.phone?.message}>
           <Input
             id="phone"
+            type="tel"
+            maxLength={10}
             leftIcon={<PhoneIcon />}
             placeholder="09xxxxxxxx"
             invalid={!!errors.phone}

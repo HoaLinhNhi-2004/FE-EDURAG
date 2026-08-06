@@ -418,6 +418,32 @@ export const authHandlers = [
     })
   }),
 
+  // GET /api/library/documents/:id/download — Stream canonical download artifact as attachment.
+  http.get(new RegExp(`${API}/library/documents/(\\d+)/download$`), async ({ request }) => {
+    await delay(200)
+    const match = request.url.match(/\/library\/documents\/(\d+)\/download$/)
+    const docId = Number(match?.[1])
+    const LIBRARY_IDS = new Set([1, 101, 102, 103, 104, 105, 106])
+    if (!LIBRARY_IDS.has(docId)) {
+      return fail(404, 'DOCUMENT_NOT_FOUND', 'Tài liệu không tồn tại hoặc không khả dụng.')
+    }
+    if (docId === 104) {
+      return HttpResponse.json(
+        { success: false, message: 'File tải canonical hiện không khả dụng.', errorCode: 'CANONICAL_DOWNLOAD_UNAVAILABLE' },
+        { status: 409 },
+      )
+    }
+    const { MOCK_PDF_BASE64 } = await import('./mockPdf')
+    const pdfBytes = Uint8Array.from(atob(MOCK_PDF_BASE64), c => c.charCodeAt(0))
+    return new HttpResponse(pdfBytes, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="document-${docId}.pdf"`,
+      },
+    })
+  }),
+
   // GET /api/library/documents/:id/preview — Inline preview.
   // PDF → stream original inline. DOCX → stream generated PDF khi preview READY.
   // Preview thiếu/pending/failed → 409 (không nới scope library).
@@ -625,4 +651,56 @@ export const studentAdminHandlers = [
   }),
 ]
 
-export const handlers = [...authHandlers, ...chatHandlers, ...teacherAdminHandlers, ...studentAdminHandlers]
+export const dashboardAdminHandlers = [
+  http.get(`${API}/admin/dashboard/summary`, async ({ request }) => {
+    await delay(300)
+    const account = findAdminByToken(bearer(request))
+    if (!account) return fail(403, 'FORBIDDEN', 'Không có quyền truy cập.')
+
+    return ok({
+      range: { from: null, to: null },
+      documents: [
+        { processing_status: 'READY', visibility_status: 'VISIBLE', total: 12 },
+        { processing_status: 'PROCESSING', visibility_status: 'VISIBLE', total: 1 }
+      ],
+      chat: { sessions: 48, messages: 312, citations: 284 },
+      usage: {
+        scope: 'LLM_CALLS_ONLY',
+        totals: {
+          calls: 312,
+          promptTokens: 485000,
+          completionTokens: 124000,
+          totalTokens: 609000
+        },
+        breakdown: [
+          {
+            provider: 'google',
+            model: 'gemini-1.5-flash',
+            status: 'SUCCEEDED',
+            currency: 'USD',
+            calls: 300,
+            totalTokens: 585000,
+            estimatedCost: '0.08775000'
+          },
+          {
+            provider: 'google',
+            model: 'gemini-1.5-pro',
+            status: 'SUCCEEDED',
+            currency: 'USD',
+            calls: 12,
+            totalTokens: 24000,
+            estimatedCost: '0.03600000'
+          }
+        ]
+      }
+    })
+  })
+]
+
+export const handlers = [
+  ...authHandlers,
+  ...chatHandlers,
+  ...teacherAdminHandlers,
+  ...studentAdminHandlers,
+  ...dashboardAdminHandlers
+]

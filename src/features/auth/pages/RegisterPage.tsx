@@ -166,6 +166,7 @@ export function RegisterPage() {
         <FormField label="Họ và tên" htmlFor="fullName" required error={errors.fullName?.message}>
           <Input
             id="fullName"
+            maxLength={50}
             leftIcon={<UserIcon />}
             placeholder="Nguyễn Văn An"
             invalid={!!errors.fullName}
@@ -200,6 +201,7 @@ export function RegisterPage() {
             <Input
               id="phone"
               type="tel"
+              maxLength={10}
               leftIcon={<PhoneIcon />}
               placeholder="0987654321"
               invalid={!!errors.phone}
@@ -220,6 +222,7 @@ export function RegisterPage() {
             >
               <Input
                 id="studentCode"
+                maxLength={10}
                 leftIcon={<IdCardIcon />}
                 placeholder="SV2021001234"
                 invalid={!!errors.studentCode}
@@ -237,6 +240,7 @@ export function RegisterPage() {
               <Input
                 id="dateOfBirth"
                 type="date"
+                max={new Date().toISOString().split('T')[0]}
                 leftIcon={<CalendarIcon />}
                 invalid={!!errors.dateOfBirth}
                 {...register('dateOfBirth')}

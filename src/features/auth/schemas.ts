@@ -21,13 +21,25 @@ const password = z.string().min(8, 'Mật khẩu phải có ít nhất 8 ký t�
 // UC 1 — Đăng ký sinh viên và giảng viên.
 export const registerSchema = z
   .object({
-    fullName: z.string().min(1, 'Vui lòng nhập họ tên'),
+    fullName: z
+      .string()
+      .trim()
+      .min(1, 'Vui lòng nhập họ tên')
+      .max(50, 'Họ và tên không được vượt quá 50 ký tự'),
     email,
     password,
     confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
     role: z.enum(['STUDENT', 'TEACHER']),
-    phone: z.string().optional().or(z.literal('')),
-    studentCode: z.string().optional(),
+    phone: z
+      .string()
+      .trim()
+      .optional()
+      .refine((v) => !v || /^[0-9]{10}$/.test(v), 'Số điện thoại phải gồm đúng 10 chữ số'),
+    studentCode: z
+      .string()
+      .trim()
+      .max(10, 'Mã số sinh viên không được vượt quá 10 ký tự')
+      .optional(),
     dateOfBirth: z.string().optional(),
     department: z.string().optional(),
   })
@@ -43,6 +55,12 @@ export const registerSchema = z
           message: 'Vui lòng nhập mã số sinh viên',
           path: ['studentCode'],
         })
+      } else if (d.studentCode.trim().length > 10) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Mã số sinh viên không được vượt quá 10 ký tự',
+          path: ['studentCode'],
+        })
       }
       if (!d.dateOfBirth || !d.dateOfBirth.trim()) {
         ctx.addIssue({
@@ -50,6 +68,15 @@ export const registerSchema = z
           message: 'Vui lòng nhập ngày sinh',
           path: ['dateOfBirth'],
         })
+      } else {
+        const todayStr = new Date().toISOString().split('T')[0]
+        if (d.dateOfBirth > todayStr) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Ngày sinh không được vượt quá ngày hiện tại',
+            path: ['dateOfBirth'],
+          })
+        }
       }
     }
   })
