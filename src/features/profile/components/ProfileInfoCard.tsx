@@ -17,6 +17,8 @@ import {
 } from '@/components/ui'
 import type { ApiError, User } from '@/types'
 import { profileApi } from '@/api/profile.api'
+import { todayISODate } from '@/utils/datetime'
+import { MAX_FULL_NAME_LENGTH, PHONE_LENGTH } from '@/utils/validation'
 import { updateProfileSchema, type UpdateProfileFormValues } from '../schemas'
 
 // ─── Local Custom Icons ──────────────────────────────────────────────────────
@@ -369,7 +371,7 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
     resolver: zodResolver(updateProfileSchema),
     values: {
       fullName: profile.fullName,
-      dateOfBirth: profile.dateOfBirth ? String(profile.dateOfBirth).split('T')[0] : '',
+      dateOfBirth: profile.dateOfBirth ?? '',
       phone: profile.phone ?? '',
     },
   })
@@ -459,7 +461,13 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
         <FormField label="Họ và tên" htmlFor="fullName" required error={errors.fullName?.message}>
-          <Input id="fullName" maxLength={50} leftIcon={<UserIcon />} invalid={!!errors.fullName} {...register('fullName')} />
+          <Input
+            id="fullName"
+            leftIcon={<UserIcon />}
+            invalid={!!errors.fullName}
+            maxLength={MAX_FULL_NAME_LENGTH}
+            {...register('fullName')}
+          />
         </FormField>
 
         <FormField label="Email" htmlFor="email" hint="Email không thể thay đổi">
@@ -486,8 +494,8 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
           <Input
             id="dateOfBirth"
             type="date"
-            max={new Date().toISOString().split('T')[0]}
             leftIcon={<CalendarIcon />}
+            max={todayISODate()}
             invalid={!!errors.dateOfBirth}
             {...register('dateOfBirth')}
           />
@@ -497,10 +505,11 @@ export function ProfileInfoCard({ profile }: { profile: User }) {
           <Input
             id="phone"
             type="tel"
-            maxLength={10}
+            inputMode="numeric"
             leftIcon={<PhoneIcon />}
             placeholder="09xxxxxxxx"
             invalid={!!errors.phone}
+            maxLength={PHONE_LENGTH}
             {...register('phone')}
           />
         </FormField>

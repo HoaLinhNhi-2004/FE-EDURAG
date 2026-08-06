@@ -1,6 +1,17 @@
 const isSameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString()
 
 /**
+ * Ngày hôm nay theo múi giờ máy người dùng, định dạng 'YYYY-MM-DD'.
+ * Dùng cho thuộc tính `max` của <input type="date"> và cho việc chặn ngày tương lai.
+ */
+export function todayISODate(): string {
+  const now = new Date()
+  const month = `${now.getMonth() + 1}`.padStart(2, '0')
+  const day = `${now.getDate()}`.padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
+/**
  * Nhãn thời gian cho danh sách lịch sử chat (UC 9):
  * hôm nay → "Hôm nay, 14:30" · hôm qua → "Hôm qua, 09:15" · cũ hơn → "02/07/2026".
  */

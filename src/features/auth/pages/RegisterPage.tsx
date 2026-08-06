@@ -21,6 +21,12 @@ import {
 import type { ApiError } from '@/types'
 import { authApi } from '@/api/auth.api'
 import { useAuth } from '@/store/auth'
+import { todayISODate } from '@/utils/datetime'
+import {
+  MAX_FULL_NAME_LENGTH,
+  MAX_STUDENT_CODE_LENGTH,
+  PHONE_LENGTH,
+} from '@/utils/validation'
 import { AuthShell } from '../components/AuthShell'
 import { PasswordStrength } from '../components/PasswordStrength'
 import { registerSchema, type RegisterFormValues } from '../schemas'
@@ -166,11 +172,11 @@ export function RegisterPage() {
         <FormField label="Họ và tên" htmlFor="fullName" required error={errors.fullName?.message}>
           <Input
             id="fullName"
-            maxLength={50}
             leftIcon={<UserIcon />}
             placeholder="Nguyễn Văn An"
             invalid={!!errors.fullName}
             autoComplete="name"
+            maxLength={MAX_FULL_NAME_LENGTH}
             {...register('fullName')}
           />
         </FormField>
@@ -201,11 +207,12 @@ export function RegisterPage() {
             <Input
               id="phone"
               type="tel"
-              maxLength={10}
+              inputMode="numeric"
               leftIcon={<PhoneIcon />}
               placeholder="0987654321"
               invalid={!!errors.phone}
               autoComplete="tel"
+              maxLength={PHONE_LENGTH}
               {...register('phone')}
             />
           </FormField>
@@ -222,10 +229,10 @@ export function RegisterPage() {
             >
               <Input
                 id="studentCode"
-                maxLength={10}
                 leftIcon={<IdCardIcon />}
-                placeholder="SV2021001234"
+                placeholder="SV21001234"
                 invalid={!!errors.studentCode}
+                maxLength={MAX_STUDENT_CODE_LENGTH}
                 {...register('studentCode')}
               />
             </FormField>
@@ -240,8 +247,9 @@ export function RegisterPage() {
               <Input
                 id="dateOfBirth"
                 type="date"
-                max={new Date().toISOString().split('T')[0]}
                 leftIcon={<CalendarIcon />}
+                // Chặn ngay ở date picker; schema vẫn kiểm lại phòng khi người dùng gõ tay.
+                max={todayISODate()}
                 invalid={!!errors.dateOfBirth}
                 {...register('dateOfBirth')}
               />

@@ -1,4 +1,14 @@
 import { z } from 'zod'
+import {
+  FULL_NAME_MAX_MESSAGE,
+  FUTURE_DATE_MESSAGE,
+  MAX_FULL_NAME_LENGTH,
+  MAX_STUDENT_CODE_LENGTH,
+  PHONE_MESSAGE,
+  PHONE_PATTERN,
+  STUDENT_CODE_MAX_MESSAGE,
+  isFutureDate,
+} from '@/utils/validation'
 
 /**
  * Schema validate cho các form auth của luồng Client.
@@ -25,21 +35,24 @@ export const registerSchema = z
       .string()
       .trim()
       .min(1, 'Vui lòng nhập họ tên')
-      .max(50, 'Họ và tên không được vượt quá 50 ký tự'),
+      .max(MAX_FULL_NAME_LENGTH, FULL_NAME_MAX_MESSAGE),
     email,
     password,
     confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
     role: z.enum(['STUDENT', 'TEACHER']),
+    // SĐT không bắt buộc, nhưng đã nhập thì phải đúng 10 chữ số.
     phone: z
       .string()
       .trim()
       .optional()
-      .refine((v) => !v || /^[0-9]{10}$/.test(v), 'Số điện thoại phải gồm đúng 10 chữ số'),
+      .refine((v) => !v || PHONE_PATTERN.test(v), PHONE_MESSAGE),
     studentCode: z
       .string()
       .trim()
-      .max(10, 'Mã số sinh viên không được vượt quá 10 ký tự')
+      .max(MAX_STUDENT_CODE_LENGTH, STUDENT_CODE_MAX_MESSAGE)
       .optional(),
+    // Rule của ngày sinh nằm ở superRefine bên dưới (chỉ áp dụng cho sinh viên,
+    // tránh trường hợp field đang ẩn vẫn chặn submit khi chọn vai trò Giảng viên).
     dateOfBirth: z.string().optional(),
     department: z.string().optional(),
   })
@@ -55,12 +68,6 @@ export const registerSchema = z
           message: 'Vui lòng nhập mã số sinh viên',
           path: ['studentCode'],
         })
-      } else if (d.studentCode.trim().length > 10) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Mã số sinh viên không được vượt quá 10 ký tự',
-          path: ['studentCode'],
-        })
       }
       if (!d.dateOfBirth || !d.dateOfBirth.trim()) {
         ctx.addIssue({
@@ -68,15 +75,12 @@ export const registerSchema = z
           message: 'Vui lòng nhập ngày sinh',
           path: ['dateOfBirth'],
         })
-      } else {
-        const todayStr = new Date().toISOString().split('T')[0]
-        if (d.dateOfBirth > todayStr) {
-          ctx.addIssue({
-            code: 'custom',
-            message: 'Ngày sinh không được vượt quá ngày hiện tại',
-            path: ['dateOfBirth'],
-          })
-        }
+      } else if (isFutureDate(d.dateOfBirth.trim())) {
+        ctx.addIssue({
+          code: 'custom',
+          message: FUTURE_DATE_MESSAGE,
+          path: ['dateOfBirth'],
+        })
       }
     }
   })
