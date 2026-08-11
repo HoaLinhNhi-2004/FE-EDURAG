@@ -22,7 +22,6 @@ import {
   ChatBubbleIcon,
   ClockIcon,
   UploadIcon,
-  BellIcon,
   UserIcon,
   UsersIcon,
   ZapIcon,
@@ -65,13 +64,6 @@ const TEACHER_NAV: NavGroup[] = [
       { label: 'Thư viện học liệu', to: '/dashboard/library', Icon: DatabaseIcon },
     ],
   },
-  {
-    heading: 'CẤU HÌNH',
-    items: [
-      // badge: lấy từ API thông báo khi triển khai thật
-      { label: 'Thông báo', to: '/dashboard/notifications', Icon: BellIcon },
-    ],
-  },
 ]
 
 const ADMIN_NAV: NavGroup[] = [
@@ -99,12 +91,6 @@ const ADMIN_NAV: NavGroup[] = [
     heading: 'HẠ TẦNG AI',
     items: [
       { label: 'FinOps & Token', to: '/dashboard/finops', Icon: ZapIcon },
-    ],
-  },
-  {
-    heading: 'HỆ THỐNG',
-    items: [
-      { label: 'Thông báo', to: '/dashboard/notifications', Icon: BellIcon },
     ],
   },
 ]
@@ -296,19 +282,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {/* Thanh trên chỉ có ở màn nhỏ, nơi sidebar bị ẩn */}
-        <header className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+        {/* Thanh trên chỉ hiện ở màn nhỏ, nơi sidebar bị ẩn */}
+        <header className="flex shrink-0 items-center border-b border-slate-200 bg-white px-4 py-3 md:hidden">
           <button
             type="button"
             onClick={() => setNavOpen(true)}
             aria-label="Mở menu điều hướng"
             aria-expanded={navOpen}
-            className="-ml-1 rounded-lg p-1.5 text-slate-600 hover:bg-slate-100"
+            className="-ml-1 mr-2 rounded-lg p-1.5 text-slate-600 hover:bg-slate-100"
           >
             <MenuIcon width={20} height={20} />
           </button>
-          <BrandMark />
-          <span className="text-sm font-bold tracking-tight text-slate-900">EduRAG</span>
+          <span className="flex items-center gap-2">
+            <BrandMark />
+            <span className="text-sm font-bold tracking-tight text-slate-900">EduRAG</span>
+          </span>
         </header>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</main>
