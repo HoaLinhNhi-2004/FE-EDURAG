@@ -8,8 +8,8 @@
  * Thẻ trích dẫn nguồn kèm câu trả lời (UC 7, UC 10) — khớp contract BE.
  * Citation trong chat/history KHÔNG có `originalAvailable`; khi click phải gọi
  * GET /citations/{id} để lấy field này rồi mới mở file gốc.
- * `sourceLocator` (toạ độ highlight) BE CHƯA implement (không cam kết) → highlight
- * best-effort qua `pageNumber` + `sourceText` trong text-layer PDF.js.
+ * BE chốt KHÔNG làm toạ độ vùng trích → FE bỏ highlight đoạn văn, chỉ định vị
+ * tới trang qua `pageNumber` (UC 10 hạ scope xuống "mở đúng trang").
  */
 export interface Citation {
   id: number
@@ -24,7 +24,7 @@ export interface Citation {
   messageId?: number | null
   /** Có thể null nếu chunk đã bị xóa. */
   chunkId?: number | null
-  /** BE chưa implement — luôn null hiện tại. Không phụ thuộc schema này. */
+  /** BE không làm toạ độ — luôn null. FE không dùng; giữ để khớp payload BE. */
   sourceLocator?: unknown | null
   retrievalScore?: number | null
   rerankScore?: number | null
