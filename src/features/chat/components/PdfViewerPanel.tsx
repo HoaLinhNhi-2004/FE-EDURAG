@@ -18,9 +18,6 @@ const PAGE_WIDTH = 460
 /** Padding p-4 hai bên của vùng cuộn — trừ ra để trang không bị tràn. */
 const PAGE_GUTTER = 32
 
-/** Chờ text-layer render xong (~1.8s) trước khi chịu thua và cuộn theo pageNumber. */
-const GRACE_TICKS = 12
-
 const HEADING_RE = /^\s{0,3}#{1,6}\s+(.*)$/
 const TABLE_ROW_RE = /^\s*\|.*\|\s*$/
 /** Số/chữ đánh mục đứng một mình: "1.", "2)", "IV.", "a)". */
@@ -33,33 +30,6 @@ const stripInline = (s: string) =>
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .trim()
-
-/**
- * Bỏ cú pháp Markdown khỏi chuỗi trước khi so khớp.
- * BE chuyển tài liệu sang Markdown lúc ingest nên `sourceText` có `#`, `**`… trong
- * khi text-layer của PDF thì không — không bỏ đi thì highlight trượt.
- */
-const stripMarkdown = (s: string) =>
-  stripInline(
-    s
-      .replace(/```[\s\S]*?```/g, ' ')
-      .replace(/^\s{0,3}#{1,6}\s+/gm, '')
-      .replace(/^\s{0,3}>\s?/gm, '')
-      .replace(/^\s{0,3}[-*+]\s+/gm, '')
-      .replace(/\|/g, ' '),
-  )
-
-// Bỏ dấu tiếng Việt + gom khoảng trắng + bỏ dấu câu cuối — để so khớp text-layer
-// bền hơn (BE lưu ý: highlight best-effort do khác encoding/normalize/OCR).
-const normalize = (s: string) =>
-  stripMarkdown(s)
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/đ/gi, 'd')
-    .toLowerCase()
-    .replace(/[.,;:]+$/g, '')
-    .replace(/\s+/g, ' ')
     .trim()
 
 type ExcerptLine = { kind: 'heading' | 'text'; text: string }
@@ -106,8 +76,10 @@ function parseExcerpt(raw: string): ExcerptLine[] {
 /**
  * UC 10 — Panel xem tài liệu gốc từ thẻ trích dẫn.
  * Flow: lấy chi tiết citation → tải bản PDF chuẩn hóa của tài liệu (mọi định dạng
- * đều đi đường này; DOCX được BE sinh sẵn PDF lúc ingest) → PDF.js render,
- * highlight sourceText trong text-layer rồi cuộn tới đúng đoạn đó.
+ * đều đi đường này; DOCX được BE sinh sẵn PDF lúc ingest) → PDF.js render rồi
+ * cuộn tới trang `pageNumber`.
+ * BE không cung cấp toạ độ vùng trích (chốt: không làm) nên KHÔNG highlight đoạn
+ * văn — định vị dừng ở mức trang. Đoạn trích gốc vẫn xem được ở thẻ trích dẫn.
  * Không có bản preview (PPTX / chưa sinh xong / tài liệu đã xóa) → fallback: hiện đoạn trích.
  */
 export function PdfViewerPanel({
@@ -165,21 +137,8 @@ export function PdfViewerPanel({
     return () => URL.revokeObjectURL(url)
   }, [previewQuery.data])
 
-  // Highlight best-effort: tô text-item khớp (một chiều) với sourceText (BE chưa có toạ độ).
-  const customTextRenderer = useMemo(() => {
-    const target = normalize(detail.sourceText ?? '')
-    if (!target) return undefined
-    return ({ str }: { str: string }) => {
-      const t = normalize(str)
-      if (t.length >= 3 && (target.includes(t) || t.includes(target))) {
-        return `<mark style="background: rgba(250, 204, 21, 0.45); color: inherit;">${str}</mark>`
-      }
-      return str
-    }
-  }, [detail.sourceText])
-
-  // Cuộn tới đoạn được highlight. `pageNumber` với DOCX là segment giả lập, không
-  // phải trang của bản PDF sinh ra — nên chỉ dùng khi không khớp được chữ nào.
+  // Cuộn tới trang BE chỉ định. Lưu ý với DOCX/TXT thì `pageNumber` là segment
+  // giả lập, có thể lệch so với trang của bản PDF sinh ra — chấp nhận sai số này.
   useEffect(() => {
     if (!numPages) return
     let ticks = 0
@@ -190,24 +149,10 @@ export function PdfViewerPanel({
       if (!root) return
 
       const pageEl = root.querySelector(`#pdf-page-${targetPage}`) as HTMLElement | null
-      // Ưu tiên highlight nằm đúng trang BE chỉ: sourceText ngắn (vd tên tài liệu)
-      // khớp được ở nhiều trang, lấy cái đầu tiên trong tài liệu sẽ cuộn sai chỗ.
-      const onTargetPage = pageEl?.querySelector('mark') as HTMLElement | null
-      // Hết thời gian chờ mới chấp nhận highlight ở trang khác — với DOCX thì
-      // pageNumber là segment giả lập, không trùng trang của bản PDF sinh ra.
-      const mark =
-        onTargetPage ??
-        (ticks >= GRACE_TICKS ? (root.querySelector('mark') as HTMLElement | null) : null)
-
-      if (mark) {
-        mark.scrollIntoView({ block: 'center' })
-        if (++scrolls >= 3) clearInterval(id)
-        return
-      }
-
-      // Không khớp được chữ nào → lùi về pageNumber.
-      if (ticks >= GRACE_TICKS && pageEl && pageEl.offsetHeight > 50) {
+      // Trang chỉ có chiều cao thật sau khi canvas render xong; cuộn sớm sẽ trượt.
+      if (pageEl && pageEl.offsetHeight > 50) {
         pageEl.scrollIntoView({ block: 'start' })
+        // Cuộn lại vài nhịp: các trang phía trên render xong sẽ đẩy vị trí lệch đi.
         if (++scrolls >= 3) clearInterval(id)
       }
       if (ticks > 40) clearInterval(id)
@@ -313,12 +258,7 @@ export function PdfViewerPanel({
               const pageNo = i + 1
               return (
                 <div id={`pdf-page-${pageNo}`} key={pageNo} className="mx-auto mb-3 w-fit shadow-sm">
-                  <Page
-                    pageNumber={pageNo}
-                    width={pageWidth}
-                    customTextRenderer={customTextRenderer}
-                    renderAnnotationLayer={false}
-                  />
+                  <Page pageNumber={pageNo} width={pageWidth} renderAnnotationLayer={false} />
                 </div>
               )
             })}

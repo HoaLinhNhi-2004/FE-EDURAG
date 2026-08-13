@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ApiError, ChatMessage } from '@/types'
 import { chatApi } from '@/api/chat.api'
@@ -7,6 +7,10 @@ import { chatApi } from '@/api/chat.api'
  * Quản lý một cuộc trò chuyện (UC 7).
  * - Không truyền `initialSessionId` → phiên mới, tự tạo ở lần gửi đầu.
  * - Có `initialSessionId` (mở từ Lịch sử — UC 9) → nạp lại hội thoại cũ và chat tiếp.
+ * - `startNewSession()` → bỏ phiên đang mở, quay về khung chat trống; phiên mới chỉ
+ *   thực sự được tạo ở BE khi người dùng gửi câu hỏi đầu tiên (không tạo phiên rỗng).
+ * - `activeSessionId` → id phiên đang mở (kể cả phiên vừa tự tạo), để nơi gọi đồng bộ
+ *   vào URL `?session=<id>`; nhờ đó F5 giữa chừng không mất hội thoại.
  *
  * Chat là ĐỒNG BỘ (chốt B7): gửi → BE trả 200 kèm assistantMessage COMPLETED, render
  * thẳng, không poll. Chỉ khi retry trùng clientRequestId đang xử lý (duplicate + PENDING)
@@ -20,11 +24,24 @@ import { chatApi } from '@/api/chat.api'
 export function useChat(initialSessionId?: number) {
   const queryClient = useQueryClient()
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  // Ref = nguồn đọc đồng bộ ngay trong mutation; state chỉ để render/đồng bộ URL.
   const sessionId = useRef<number | null>(initialSessionId ?? null)
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(initialSessionId ?? null)
+  // Phiên do chính hook này tạo ở lần gửi đầu. Nhớ lại để khi nơi gọi ghi
+  // `?session=<id>` vào URL thì không hiểu nhầm thành "mở phiên khác" mà xóa hội
+  // thoại đang hiển thị và nạp lại từ BE. Mọi lần gán ref đều kèm một setState nên
+  // giá trị đọc lúc render luôn khớp với lần render hiện tại.
+  const selfCreatedId = useRef<number | null>(null)
+
+  // Chỉ "khôi phục" khi mở phiên do nơi khác chỉ định (Lịch sử / dán URL / F5).
+  const isRestoring = initialSessionId != null && initialSessionId !== selfCreatedId.current
 
   // Đổi phiên (hoặc mở phiên mới) → reset hội thoại đang hiển thị.
   useEffect(() => {
+    // URL vừa được đồng bộ với phiên đang chat → không phải đổi phiên, giữ nguyên.
+    if (initialSessionId != null && initialSessionId === selfCreatedId.current) return
     sessionId.current = initialSessionId ?? null
+    setActiveSessionId(initialSessionId ?? null)
     setMessages([])
   }, [initialSessionId])
 
@@ -32,12 +49,22 @@ export function useChat(initialSessionId?: number) {
   const historyQuery = useQuery({
     queryKey: ['chat', 'messages', initialSessionId],
     queryFn: () => chatApi.getMessages(initialSessionId as number),
-    enabled: initialSessionId != null,
+    enabled: isRestoring,
   })
 
   useEffect(() => {
     if (historyQuery.data) setMessages(historyQuery.data)
   }, [historyQuery.data])
+
+  // Bắt đầu cuộc trò chuyện mới: quên phiên đang mở + xóa hội thoại đang hiển thị.
+  // KHÔNG gọi BE ở đây — tránh đẻ ra phiên rỗng trong Lịch sử (UC 9) nếu người dùng
+  // bấm "mới" rồi bỏ đi mà không hỏi gì.
+  const startNewSession = useCallback(() => {
+    sessionId.current = null
+    selfCreatedId.current = null
+    setActiveSessionId(null)
+    setMessages([])
+  }, [])
 
   const reloadMessages = () => {
     if (sessionId.current != null) {
@@ -58,6 +85,8 @@ export function useChat(initialSessionId?: number) {
         const title = content.length > 60 ? content.slice(0, 57) + '…' : content
         const session = await chatApi.createSession({ title })
         sessionId.current = session.id
+        selfCreatedId.current = session.id
+        setActiveSessionId(session.id)
       }
       return chatApi.sendMessage(sessionId.current, {
         content,
@@ -124,7 +153,9 @@ export function useChat(initialSessionId?: number) {
   return {
     messages,
     send,
+    startNewSession,
+    activeSessionId,
     isSending: mutation.isPending,
-    isLoadingHistory: initialSessionId != null && historyQuery.isPending,
+    isLoadingHistory: isRestoring && historyQuery.isPending,
   }
 }

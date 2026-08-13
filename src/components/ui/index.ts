@@ -25,6 +25,7 @@ export {
   XIcon,
   LogOutIcon,
   MenuIcon,
+  PlusIcon,
   // Document / file
   DocumentIcon,
   FileTextIcon,
